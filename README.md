@@ -356,6 +356,7 @@ cmd/        a CLI: api, migrate, worker, sefaz-status, healthcheck
 make setup   # .env + dependências
 make dev     # sobe o Postgres do compose + migrations + API
 make local   # usa um Postgres 18 que você já tem rodando (POSTGRES_* do .env)
+make worker  # o worker, noutro terminal (NFC-e offline, notas sem resposta, inutilização)
 make test    # testes sem banco
 make check   # gofmt, vet e a suíte inteira contra um Postgres 18 descartável
 ```

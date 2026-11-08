@@ -14,6 +14,9 @@ local: migrate run ## Usa o Postgres 18 que você já tem (POSTGRES_* do .env): 
 run: ## Roda a API local
 	go run . api
 
+worker: ## Roda o worker local (noutro terminal, junto com a API)
+	go run . worker
+
 build: ## Compila o binário
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o kang-fiscal .
 
