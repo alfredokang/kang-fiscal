@@ -52,8 +52,12 @@ func GetConnection() (*sql.DB, error) {
 		// duas APIs e o migrate ao mesmo tempo, e o Postgres de um servidor pequeno vem com
 		// max_connections=100. A emissão espera a SEFAZ, não o banco — mais conexões não
 		// emitem mais rápido.
-		instance.SetMaxOpenConns(20)
-		instance.SetMaxIdleConns(5)
+		maxConns := config.Env.PostgresMaxConns
+		if maxConns < 2 {
+			maxConns = 20
+		}
+		instance.SetMaxOpenConns(maxConns)
+		instance.SetMaxIdleConns(min(5, maxConns))
 		instance.SetConnMaxLifetime(30 * time.Minute)
 	})
 

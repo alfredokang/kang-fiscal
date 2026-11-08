@@ -22,10 +22,12 @@ services:
     # A mesma versão do banco: pg_dump mais velho que o servidor recusa o dump.
     image: postgres:18-alpine
     environment:
-      PGHOST: postgres_kangfiscal_postgres
+      # No Postgres da Minas Café: POSTGRES_HOST=postgres_minascafe_postgres. O dump é só do
+      # banco kangfiscal; o da loja continua com o backup_minascafe.
+      PGHOST: ${POSTGRES_HOST:-postgres_kangfiscal_postgres}
       PGPORT: "5432"
-      PGDATABASE: kangfiscal
-      PGUSER: kangfiscal
+      PGDATABASE: ${POSTGRES_DB:-kangfiscal}
+      PGUSER: ${POSTGRES_USER:-kangfiscal}
       PGPASSWORD: ${POSTGRES_PASSWORD}
       # A hora do backup, em UTC: 06 = 03h de Brasília.
       BACKUP_HOUR_UTC: "06"

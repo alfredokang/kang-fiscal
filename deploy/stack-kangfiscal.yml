@@ -1,8 +1,9 @@
 version: "3.8"
 
 # ⚠️ Criar no Portainer com o nome de stack: kangfiscal
-#    Depende da stack postgres_kangfiscal (deploy/stack-postgres-kangfiscal.yml), que sobe
-#    ANTES desta. Passo a passo: docs/03-deploy-swarm.md
+#    O banco: a stack postgres_kangfiscal (deploy/stack-postgres-kangfiscal.yml) OU um
+#    Postgres 18 que já existe, com banco e usuário próprios (POSTGRES_HOST). Passo a
+#    passo: docs/03-deploy-swarm.md
 #
 # Os valores vêm das "Environment variables" da stack no Portainer: o botão "Load
 # variables from .env file" aceita o deploy/kangfiscal.env.example preenchido. O Swarm
@@ -12,13 +13,16 @@ x-app-env: &app-env
   ENVIRONMENT: production
   API_PORT: "8080"
 
-  # Nome do serviço = <stack>_<serviço>. A porta é a INTERNA, não a publicada.
-  POSTGRES_HOST: postgres_kangfiscal_postgres
+  # Nome do serviço = <stack>_<serviço>. A porta é a INTERNA, não a publicada. No Postgres
+  # da Minas Café: POSTGRES_HOST=postgres_minascafe_postgres.
+  POSTGRES_HOST: ${POSTGRES_HOST:-postgres_kangfiscal_postgres}
   POSTGRES_PORT: "5432"
-  POSTGRES_USER: kangfiscal
+  POSTGRES_USER: ${POSTGRES_USER:-kangfiscal}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  POSTGRES_DB: kangfiscal
+  POSTGRES_DB: ${POSTGRES_DB:-kangfiscal}
   POSTGRES_SSL_MODE: disable
+  # Conexões por processo. Num Postgres compartilhado, 10 (veja docs/03-deploy-swarm.md).
+  POSTGRES_MAX_CONNS: ${POSTGRES_MAX_CONNS:-20}
 
   # Segredos: gere cada um com `openssl rand -base64 32`, um diferente para cada.
   ADMIN_TOKEN: ${ADMIN_TOKEN}

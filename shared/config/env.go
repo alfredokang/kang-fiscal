@@ -28,6 +28,9 @@ type EnvConfig struct {
 	PostgresHost     string `envconfig:"POSTGRES_HOST" default:"localhost"`
 	PostgresPort     string `envconfig:"POSTGRES_PORT" default:"5432"`
 	PostgresSSLMode  string `envconfig:"POSTGRES_SSL_MODE" default:"disable"`
+	// PostgresMaxConns é o teto de conexões de CADA processo (api, worker, migrate). Num
+	// Postgres compartilhado com outro sistema, baixe para não estourar max_connections.
+	PostgresMaxConns int `envconfig:"POSTGRES_MAX_CONNS" default:"20"`
 
 	// SecretsEncryptionKey cifra a chave privada do certificado A1 e a senha dele
 	// (Constituição, Art. 9.1). 32 bytes em base64: `openssl rand -base64 32`. Fica SÓ

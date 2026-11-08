@@ -71,6 +71,11 @@ var Migrate = &cobra.Command{
 
 			files, err := filepath.Glob(filepath.Join(path, "*.sql"))
 			fatal(err)
+			// Todo módulo da lista tem migration. Não achar nenhuma é rodar fora do diretório
+			// certo — e terminar dizendo "concluídas" deixaria a API subir num banco vazio.
+			if len(files) == 0 {
+				fatal(fmt.Errorf("nenhuma migration em %s: rode o migrate na raiz do projeto (na imagem, em /app)", path))
+			}
 			sort.Strings(files)
 
 			for _, file := range files {

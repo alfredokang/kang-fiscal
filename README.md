@@ -76,6 +76,7 @@ Gere os segredos com `openssl rand -base64 32`, um diferente para cada variável
 | `API_PORT` | `8080` | Porta HTTP |
 | `ENVIRONMENT` | `development` | `production` liga o log em JSON |
 | `POSTGRES_PORT` | `5432` | |
+| `POSTGRES_MAX_CONNS` | `20` | Conexões por processo (api, worker, migrate). Num Postgres compartilhado com outro sistema, baixe para 10 |
 | `POSTGRES_SSL_MODE` | `disable` | `require` ou `verify-full` quando o banco está em outra máquina |
 | `CREDENTIAL_PEPPER` | — | Necessária só para criar credenciais de tenant (`kf_...`). Trocar invalida todas |
 | `RATE_LIMIT_PER_MINUTE` | `600` | Requisições por credencial por minuto; `0` desliga |

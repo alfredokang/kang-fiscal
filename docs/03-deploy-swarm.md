@@ -19,8 +19,8 @@ para o IP do servidor. O Traefik só emite o HTTPS depois que o DNS responde.
 **No servidor (nó manager), uma vez:**
 
 ```bash
-docker volume create kangfiscal_postgres_data
 mkdir -p /root/backups/kangfiscal
+docker volume create kangfiscal_postgres_data   # só na opção B (Postgres próprio)
 ```
 
 **As variáveis:** copie `deploy/kangfiscal.env.example`, preencha e guarde num lugar seguro
@@ -33,7 +33,51 @@ for v in ADMIN_TOKEN SECRETS_ENCRYPTION_KEY CREDENTIAL_PEPPER; do echo "$v=$(ope
 > ⚠️ A `SECRETS_ENCRYPTION_KEY` cifra os certificados A1 no banco e **não vai no backup**.
 > Sem ela, nem o backup devolve os certificados. Guarde uma cópia fora do servidor.
 
-## 2. O banco — `postgres_kangfiscal`
+## 2. O banco
+
+Duas opções. **A** é a mais simples se você já tem um Postgres 18 no Swarm (o da Minas
+Café); **B** é um servidor só para o emissor.
+
+### A. No Postgres que já existe (banco e usuário separados)
+
+O Kang Fiscal ganha um banco próprio e um usuário que **não enxerga** o banco da loja.
+Testado: as migrations rodam sem superusuário (a extensão `btree_gist` é *trusted* desde o
+Postgres 13) e o usuário `kangfiscal` não consegue nem conectar no banco `minascafe`.
+
+No servidor, entre no Postgres como o usuário da loja (que é o superusuário da imagem):
+
+```bash
+docker exec -it $(docker ps -q -f name=postgres_minascafe_postgres) psql -U minascafe -d minascafe
+```
+
+E rode, trocando a senha:
+
+```sql
+CREATE ROLE kangfiscal LOGIN PASSWORD 'SENHA-FORTE-DO-KANGFISCAL';
+CREATE DATABASE kangfiscal OWNER kangfiscal;
+-- Ninguém além do dono entra no banco do emissor, e o emissor não entra no da loja.
+REVOKE ALL ON DATABASE kangfiscal FROM PUBLIC;
+REVOKE CONNECT ON DATABASE minascafe FROM PUBLIC;
+```
+
+Nas variáveis da stack `kangfiscal` (e da `backup_kangfiscal`):
+
+```bash
+POSTGRES_HOST=postgres_minascafe_postgres
+POSTGRES_PASSWORD=SENHA-FORTE-DO-KANGFISCAL
+POSTGRES_MAX_CONNS=10
+```
+
+**Conexões:** o Postgres da loja tem `max_connections=100`. No pior momento (um deploy,
+com duas APIs, o worker e o migrate), a loja usa até 80 e o emissor até 4 × o
+`POSTGRES_MAX_CONNS`. Com 10, são 40 — some 120 e passa de 100. Então **suba o
+`max_connections` da stack `postgres_minascafe` para 150** (`-c max_connections=150`; cada
+conexão parada custa poucos MB). Ou baixe o `POSTGRES_MAX_CONNS` para 5, que atende um
+emissor de volume pequeno.
+
+Pule a criação da stack `postgres_kangfiscal` e do volume `kangfiscal_postgres_data`.
+
+### B. Um Postgres só para o emissor — `postgres_kangfiscal`
 
 Portainer → **Stacks → Add stack**:
 
@@ -66,7 +110,8 @@ E abra `https://fiscal.seudominio.com.br/docs`.
 
 1. Nome: `backup_kangfiscal`
 2. Web editor: cole `deploy/stack-backup-postgres-kangfiscal.yml`
-3. Environment variables: `POSTGRES_PASSWORD` (a mesma do banco)
+3. Environment variables: `POSTGRES_PASSWORD` (a mesma do banco) e, na opção A,
+   `POSTGRES_HOST=postgres_minascafe_postgres`
 4. Deploy. Nos logs deve aparecer `backup: ok`, e o arquivo em
    `/root/backups/kangfiscal/diario/`.
 
@@ -110,6 +155,10 @@ passa no healthcheck antes da antiga cair (`start-first`).
 versão nova criou coluna, a velha convive com ela.
 
 ## Restaurar o backup
+
+Na opção A, troque `postgres_kangfiscal_postgres` por `postgres_minascafe_postgres` nos
+comandos abaixo — e confira duas vezes o `-d kangfiscal`: restaurar com `--clean` no banco
+errado apaga a loja.
 
 **Teste sempre num banco descartável primeiro.**
 
