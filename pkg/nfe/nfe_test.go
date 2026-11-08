@@ -1,17 +1,11 @@
 package nfe_test
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/alfredokang/kang-fiscal/pkg/accesskey"
-	"github.com/alfredokang/kang-fiscal/pkg/certificate"
 	"github.com/alfredokang/kang-fiscal/pkg/decimal"
 	"github.com/alfredokang/kang-fiscal/pkg/nfe"
-	"github.com/alfredokang/kang-fiscal/pkg/xmldsig"
+	"github.com/alfredokang/kang-fiscal/pkg/nfe/nfetest"
 )
 
 func d(s string, scale uint8) nfe.Dec { return mustDec(s, scale) }
@@ -43,15 +37,6 @@ func ibsTeste2026(base string) *nfe.IBSCBS {
 			VIBS:    vIBSUF,
 			GCBS:    nfe.GCBS{PCBS: d("0.9000", 4), VCBS: vCBS},
 		},
-	}
-}
-
-func emitente() nfe.Emit {
-	return nfe.Emit{
-		CNPJ: "11222333000181", XNome: "CAFE EXEMPLO LTDA",
-		EnderEmit: nfe.Endereco{XLgr: "RUA DAS FLORES", Nro: "100", XBairro: "CENTRO", CMun: "3550308",
-			XMun: "SAO PAULO", UF: "SP", CEP: "01001000", CPais: "1058", XPais: "BRASIL"},
-		IE: "123456789110", CRT: 3,
 	}
 }
 
@@ -88,9 +73,11 @@ func notaRegimeNormal(t *testing.T) *nfe.NFe {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ide, id := nfetest.Ide(t, 55, 123)
 	return &nfe.NFe{InfNFe: nfe.InfNFe{
-		Ide:  ide(t, 55, 123, 1),
-		Emit: emitente(),
+		ID:   id,
+		Ide:  ide,
+		Emit: nfetest.Emit(3),
 		Dest: &nfe.Dest{CNPJ: "99888777000166", XNome: "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",
 			EnderDest: &nfe.Endereco{XLgr: "AV PAULISTA", Nro: "1000", XBairro: "BELA VISTA", CMun: "3550308",
 				XMun: "SAO PAULO", UF: "SP", CEP: "01310100"},
@@ -102,76 +89,7 @@ func notaRegimeNormal(t *testing.T) *nfe.NFe {
 	}}
 }
 
-func ide(t *testing.T, model, number, tpImp int) nfe.Ide {
-	t.Helper()
-	code, _ := accesskey.NewCode(number)
-	issued := time.Date(2026, 11, 8, 10, 0, 0, 0, time.FixedZone("BRT", -3*3600))
-	key, err := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: issued, Document: "11222333000181",
-		Model: accesskey.Model(model), Series: 1, Number: number, EmissionType: 1, Code: code})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return nfe.Ide{CUF: 35, CNF: key.String()[35:43], NatOp: "VENDA DE MERCADORIA", Mod: model, Serie: 1, NNF: number,
-		DhEmi: issued.Format("2006-01-02T15:04:05-07:00"), TpNF: 1, IdDest: 1, CMunFG: "3550308", TpImp: tpImp,
-		TpEmis: 1, CDV: int(key.String()[43] - '0'), TpAmb: 2, FinNFe: 1, IndFinal: 1, IndPres: 2, ProcEmi: 0,
-		VerProc: "kang-fiscal 0.1"}
-}
-
-func keyOf(n *nfe.NFe) string {
-	return "NFe" + accesskeyFromIde(n.InfNFe.Ide, n.InfNFe.Emit.CNPJ)
-}
-
-func accesskeyFromIde(i nfe.Ide, cnpj string) string {
-	issued, _ := time.Parse("2006-01-02T15:04:05-07:00", i.DhEmi)
-	code := 0
-	for _, c := range i.CNF {
-		code = code*10 + int(c-'0')
-	}
-	k, _ := accesskey.Build(accesskey.Parts{UFCode: i.CUF, Issued: issued, Document: cnpj,
-		Model: accesskey.Model(i.Mod), Series: i.Serie, Number: i.NNF, EmissionType: i.TpEmis, Code: code})
-	return k.String()
-}
-
-func signed(t *testing.T, n *nfe.NFe) []byte {
-	t.Helper()
-	n.InfNFe.ID = keyOf(n)
-	raw, err := nfe.Marshal(n)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pfx, _ := certificate.TestPFX("CAFE EXEMPLO LTDA", "11222333000181", "s", time.Now().Add(time.Hour))
-	cert, _ := certificate.Load(pfx, "s")
-	out, err := xmldsig.Sign(raw, "infNFe", cert)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := xmldsig.Verify(out); err != nil {
-		t.Fatal(err)
-	}
-	return out
-}
-
-// validateXSD valida contra o schema oficial com o xmllint (libxml2). Sem xmllint, o teste
-// é pulado — no CI ele é instalado (libxml2-utils).
-func validateXSD(t *testing.T, doc []byte) {
-	t.Helper()
-	if out, err := runXSD(t, doc); err != nil {
-		t.Fatalf("o XML não passa no XSD oficial:\n%s\n%s", out, doc)
-	}
-}
-
-func runXSD(t *testing.T, doc []byte) ([]byte, error) {
-	t.Helper()
-	bin, err := exec.LookPath("xmllint")
-	if err != nil {
-		t.Skip("xmllint não instalado: a validação contra o XSD oficial ficou de fora")
-	}
-	f := filepath.Join(t.TempDir(), "nfe.xml")
-	if err := os.WriteFile(f, doc, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return exec.Command(bin, "--noout", "--schema", "testdata/schemas/PL_010_V1.30/nfe_v4.00.xsd", f).CombinedOutput()
-}
+func runXSD(t *testing.T, doc []byte) ([]byte, error) { return nfetest.ValidateXSD(t, doc) }
 
 // A validação só vale se recusa o errado: NCM de 7 dígitos e CST do IBS com 2 precisam
 // cair no schema.
@@ -185,7 +103,7 @@ func TestXSDRecusaNotaErrada(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			n := notaRegimeNormal(t)
 			mutate(n)
-			if _, err := runXSD(t, signed(t, n)); err == nil {
+			if _, err := runXSD(t, nfetest.Sign(t, n)); err == nil {
 				t.Error("o XSD aceitou uma nota errada")
 			}
 		})
@@ -215,7 +133,7 @@ func TestNotaRegimeNormalComReforma(t *testing.T) {
 		t.Error("vNFTot preenchido sem pedir")
 	}
 
-	validateXSD(t, signed(t, n))
+	nfetest.MustValidateXSD(t, nfetest.Sign(t, n))
 }
 
 func TestNFCeSimplesSemReforma(t *testing.T) {
@@ -237,14 +155,13 @@ func TestNFCeSimplesSemReforma(t *testing.T) {
 	if total.IBSCBSTot != nil || total.ICMSTot.VNF.String() != "13.00" {
 		t.Fatalf("total: %+v", total)
 	}
-	emit := emitente()
-	emit.CRT = 1
+	ide, id := nfetest.Ide(t, 65, 7)
 	n := &nfe.NFe{InfNFe: nfe.InfNFe{
-		Ide: func() nfe.Ide { i := ide(t, 65, 7, 4); i.IndPres = 1; return i }(), Emit: emit,
+		ID: id, Ide: ide, Emit: nfetest.Emit(1),
 		Det: items, Total: total, Transp: nfe.Transp{ModFrete: 9},
 		Pag: nfe.Pag{DetPag: []nfe.DetPag{{TPag: "01", VPag: d("20.00", 2)}}, VTroco: p("7.00", 2)},
 	}}
-	validateXSD(t, signed(t, n))
+	nfetest.MustValidateXSD(t, nfetest.Sign(t, n))
 }
 
 func TestVNFTotQuandoPedido(t *testing.T) {
