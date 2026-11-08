@@ -4,6 +4,8 @@
 *.pfx
 *.p12
 *.pem
+# A cadeia ICP-Brasil é pública e vai embutida no binário (go:embed): tem de estar no repositório.
+!pkg/sefaz/icpbrasil.pem
 /storage/
 coverage.out
 .DS_Store
