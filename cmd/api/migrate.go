@@ -23,6 +23,8 @@ var moduleMigrationPaths = []string{
 	// issuer PRIMEIRO: o emitente é de quem são as notas, os certificados e a numeração.
 	// Nenhuma FK cruza a fronteira (Art. 2), mas a ordem mantém um banco novo coerente.
 	"internal/modules/issuer/infrastructure/persistence/postgres/migrations",
+	// credential: o tenant da credencial é texto, sem FK — não há tabela de tenants.
+	"internal/modules/credential/infrastructure/persistence/postgres/migrations",
 	// certificate: `issuer_ref` é o id do emitente como texto opaco, sem FK (Art. 2).
 	"internal/modules/certificate/infrastructure/persistence/postgres/migrations",
 	// taxrule: perfis do tenant e alíquotas da reforma, que são lei e não têm tenant.

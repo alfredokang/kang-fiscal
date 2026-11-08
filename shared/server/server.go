@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alfredokang/kang-fiscal/internal/modules/certificate"
+	"github.com/alfredokang/kang-fiscal/internal/modules/credential"
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice"
 	invoiceout "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/port/output"
 	invoiceusecase "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/usecase"
@@ -81,6 +82,7 @@ func (s *Server) routes() chi.Router {
 	r.Get("/ready", s.ready)
 	r.Handle("/metrics", promhttp.Handler())
 
+	credentialModule := credential.NewModule(s.db, config.Env.CredentialPepper)
 	issuerModule := issuer.NewModule(s.db)
 	certificateModule := certificate.NewModule(s.db, s.box,
 		certificateIssuerAdapter{issuers: issuerModule.IssuerService})
@@ -101,18 +103,28 @@ func (s *Server) routes() chi.Router {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que
 		// uma autorizadora travada prenda conexões para sempre.
 		v1.Use(chimw.Timeout(60 * time.Second))
+		// /v1/admin: só o ADMIN_TOKEN. Administra a instalação (credenciais, alíquotas da
+		// reforma, varredura) e mantém o acesso completo ao tenant default — quem roda o
+		// Kang Fiscal para a própria empresa não precisa de credencial nenhuma.
 		v1.Route("/admin", func(admin chi.Router) {
 			admin.Use(middleware.AdminToken(config.Env.AdminToken))
+			credentialModule.RegisterAdminRoutes(admin)
 			issuerModule.RegisterRoutes(admin)
 			certificateModule.RegisterRoutes(admin)
 			taxModule.RegisterRoutes(admin)
 			numberingModule.RegisterRoutes(admin)
 			invoiceModule.RegisterAdminRoutes(admin)
 		})
-		// A emissão fica fora de /admin porque é a rota dos sistemas integrados. Até as
-		// credenciais por tenant existirem, ela usa o mesmo ADMIN_TOKEN.
+		// /v1: as rotas dos sistemas integrados. Credencial do tenant (ou o ADMIN_TOKEN, no
+		// tenant default), escopo pela tabela scopeFor e limite por credencial.
 		v1.Group(func(api chi.Router) {
-			api.Use(middleware.AdminToken(config.Env.AdminToken))
+			api.Use(middleware.Authenticate(config.Env.AdminToken, credentialResolver(credentialModule.Service)))
+			api.Use(middleware.RateLimit(config.Env.RateLimitPerMinute))
+			api.Use(middleware.RequireScope(scopeFor))
+			issuerModule.RegisterRoutes(api)
+			certificateModule.RegisterRoutes(api)
+			taxModule.RegisterTenantRoutes(api)
+			numberingModule.RegisterRoutes(api)
 			invoiceModule.RegisterRoutes(api)
 		})
 	})

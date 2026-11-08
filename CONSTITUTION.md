@@ -222,6 +222,16 @@ escolhe o próprio tenant emite nota no CNPJ do vizinho.
    pepper do ambiente. A comparação é em tempo constante.
 4. **Autorização no use case**, não só na rota: uma rota nova esquecida no middleware não
    pode virar vazamento.
+
+   **Emenda (2026-11-08) — escopos de API.** (a) A regra mudada: o escopo da credencial
+   (`setup`, `nfe:write`, `nfe:read`) é conferido numa tabela única no composition root
+   (`shared/server/scopes.go`), e não em cada use case. O tenant continua vindo da
+   credencial e filtrando **todo** repositório. (b) O problema: não há papel com regra de
+   negócio, só escopos de integração; repetir a checagem em cada use case duplicaria a
+   tabela em quinze lugares, e a cópia que divergisse seria a brecha. A tabela **nega** o
+   que não estiver nela, então uma rota nova esquecida fica fechada, não aberta. (c) O que
+   se perde: um use case chamado por outro caminho que não o HTTP não confere escopo. Hoje
+   o único outro caminho é o worker, que é da administração.
 5. **XML de fora é hostil.** Parser sem entidades externas, com teto de tamanho e de
    profundidade.
 6. Todo input passa por value object antes de chegar ao domínio.

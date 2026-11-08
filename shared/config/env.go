@@ -35,6 +35,12 @@ type EnvConfig struct {
 	// os certificados já gravados: é preciso enviá-los de novo.
 	SecretsEncryptionKey string `envconfig:"SECRETS_ENCRYPTION_KEY"`
 
+	// CredentialPepper entra no HMAC dos segredos das credenciais de API. Fica SÓ aqui —
+	// trocar invalida todas as credenciais. Gere com: openssl rand -base64 32
+	CredentialPepper string `envconfig:"CREDENTIAL_PEPPER"`
+	// RateLimitPerMinute é o teto de requisições por credencial por minuto. 0 desliga.
+	RateLimitPerMinute int `envconfig:"RATE_LIMIT_PER_MINUTE" default:"600"`
+
 	// Inutilização automática: o worker varre a cada VOID_SWEEP_MINUTES os números
 	// reservados há mais de VOID_AFTER_HOURS sem nota válida. 24 horas dá tempo de alguém
 	// olhar uma rejeição, e o prazo legal é o dia 10 do mês seguinte.

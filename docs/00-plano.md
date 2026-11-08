@@ -40,7 +40,7 @@ webhook (`invoice.split_data`).
 | Módulo | Responsabilidade | Fase |
 |---|---|---|
 | `issuer` | Emitente: CNPJ, IE, CRT, endereço fiscal, ambiente | ✅ F0 |
-| `credential` | Credenciais de API por tenant (HMAC com pepper, escopos), mostradas uma única vez | F1 |
+| `credential` | Credenciais `kf_` por tenant (HMAC com pepper, escopos setup/nfe:write/nfe:read, revogação, rate limit em memória), mostradas uma única vez; tabela de escopos que nega o que não lista | ✅ F1 |
 | `certificate` | A1 `.pfx` cifrado em repouso, raiz do CNPJ conferida, segredo do antigo apagado na troca, nunca devolvido | ✅ F1 |
 | `numbering` | (inutilização automática pelo worker do `invoice`: rejeitada, não enviada e reserva sem nota; incerta é consultada antes e nunca inutilizada) Série e número com `FOR UPDATE` (50 reservas simultâneas sem buraco nem repetição), homologação e produção separadas, ajuste para quem migra sem poder voltar, lista de buracos a inutilizar | ✅ F1 |
 | `taxrule` | Perfis tributários do tenant, alíquotas de IBS/CBS por vigência e local (só 2026 semeado; sem alíquota, a emissão para), `POST /v1/admin/tax/simulate` | ✅ F1 |

@@ -26,3 +26,6 @@ func NewModule(db *sql.DB) *Module {
 
 // RegisterRoutes pendura as rotas do módulo.
 func (m *Module) RegisterRoutes(admin chi.Router) { adapterhttp.RegisterAdminRoutes(admin, m.handler) }
+
+// RegisterTenantRoutes pendura as rotas das credenciais de tenant.
+func (m *Module) RegisterTenantRoutes(r chi.Router) { adapterhttp.RegisterTenantRoutes(r, m.handler) }

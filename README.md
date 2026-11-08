@@ -67,6 +67,28 @@ A resposta diz se o cadastro já pode emitir (`can_issue`) e, se não, **o que f
 nasce em **homologação**, e a passagem para produção é uma chamada separada:
 `POST /v1/admin/issuers/{id}/production`.
 
+### Vários clientes na mesma instalação (ERP, contador)
+
+Com o `ADMIN_TOKEN` você administra a instalação e opera o tenant `default` em
+`/v1/admin/...`. Para cada cliente, crie uma credencial — o token aparece **uma única vez**:
+
+```bash
+curl -X POST localhost:8080/v1/admin/credentials -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"tenant_id": "cliente-1", "name": "ERP do cliente 1", "scopes": ["setup", "nfe:write", "nfe:read"]}'
+# { "token": "kf_ab12cd34_...", ... }
+```
+
+O cliente usa as mesmas rotas sem `/admin` — `/v1/issuers`, `/v1/tax-profiles`, `/v1/nfe` —
+e só enxerga os próprios dados.
+
+| Escopo | Alcança |
+|---|---|
+| `setup` | emitentes, certificados, séries e perfis tributários |
+| `nfe:write` | emitir, cancelar, corrigir e inutilizar |
+| `nfe:read` | consultar notas, baixar XML e DANFE, simular tributos |
+
+As alíquotas da reforma são da instalação inteira e só o `ADMIN_TOKEN` cadastra.
+
 ### Emitir a primeira NF-e em homologação
 
 Com o emitente cadastrado (e completo), o certificado enviado e um perfil tributário:
@@ -179,7 +201,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Cancelamento e carta de correção (`POST /v1/nfe/{chave}/cancel` e `/correction`) | ✅ |
 | DANFE em PDF (`GET /v1/nfe/{chave}/danfe`), sem dependência | ✅ |
 | Inutilização manual (`POST /v1/nfe/void-range`) e automática (`kang-fiscal worker`) | ✅ |
-| NFC-e, credenciais por tenant | 🔜 |
+| Credenciais por tenant (`kf_...`) com escopos e limite por minuto | ✅ |
+| NFC-e com QR Code, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

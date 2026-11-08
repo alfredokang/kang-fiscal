@@ -18,3 +18,14 @@ func RegisterAdminRoutes(r chi.Router, h *handler.TaxRuleHandler) {
 	r.Post("/tax-rates", h.AddRate)
 	r.Post("/tax/simulate", h.Simulate)
 }
+
+// RegisterTenantRoutes pendura o que uma credencial de tenant alcança: os próprios perfis,
+// a simulação e a leitura das alíquotas. Cadastrar alíquota é só do administrador — é lei,
+// vale para todos os tenants da instalação.
+func RegisterTenantRoutes(r chi.Router, h *handler.TaxRuleHandler) {
+	r.Get("/tax-profiles", h.ListProfiles)
+	r.Get("/tax-profiles/{code}", h.GetProfile)
+	r.Put("/tax-profiles/{code}", h.SaveProfile)
+	r.Get("/tax-rates", h.ListRates)
+	r.Post("/tax/simulate", h.Simulate)
+}
