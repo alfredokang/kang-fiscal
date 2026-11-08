@@ -27,13 +27,20 @@ func (s *NumberingService) Now() time.Time { return s.now() }
 
 // Reserve entrega o próximo número para um documento.
 func (s *NumberingService) Reserve(ctx context.Context, key entity.SeriesKey, documentRef string) (entity.Reservation, error) {
+	return s.ReserveClaimed(ctx, key, documentRef, "")
+}
+
+// ReserveClaimed é a reserva idempotente por venda: com o mesmo claim (a Idempotency-Key),
+// devolve a mesma reserva — mesmo número e o DocumentRef de quem reservou primeiro, que
+// passa a ser o id do documento de quem chegou depois.
+func (s *NumberingService) ReserveClaimed(ctx context.Context, key entity.SeriesKey, documentRef, claim string) (entity.Reservation, error) {
 	if err := key.Validate(); err != nil {
 		return entity.Reservation{}, err
 	}
-	if documentRef == "" {
+	if documentRef == "" || len(claim) > 80 {
 		return entity.Reservation{}, domain.ErrRequiredField
 	}
-	return s.repo.Reserve(ctx, key, documentRef, s.now())
+	return s.repo.Reserve(ctx, key, documentRef, claim, s.now())
 }
 
 // SetNext ajusta o próximo número de uma série.

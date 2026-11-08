@@ -43,4 +43,4 @@ fi
 
 INTEGRATION_DB=1 \
 INTEGRATION_DSN="postgresql://integration:integration@127.0.0.1:${PORT}/kangfiscal_integration?sslmode=disable&TimeZone=UTC" \
-  go test ./... -race -count=1 "$@"
+  go test ${TEST_TARGET:-./... -race} -count=1 "$@"

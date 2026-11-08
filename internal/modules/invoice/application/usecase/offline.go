@@ -36,8 +36,9 @@ func (s *InvoiceService) goOffline(ctx context.Context, online *entity.Invoice, 
 	if err != nil {
 		return nil, err
 	}
-	resRef, number, err := s.d.Numbers.ReserveNumber(ctx, output.NumberKey{TenantID: online.TenantID, IssuerRef: online.IssuerRef,
-		Environment: online.Environment, Model: online.Model, Series: online.Series}, id.String())
+	// Sem claim: a offline é um documento novo, com número novo, por definição.
+	resRef, number, _, err := s.d.Numbers.ReserveNumber(ctx, output.NumberKey{TenantID: online.TenantID, IssuerRef: online.IssuerRef,
+		Environment: online.Environment, Model: online.Model, Series: online.Series}, id.String(), "")
 	if err != nil {
 		return nil, err
 	}

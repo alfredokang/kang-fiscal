@@ -45,10 +45,10 @@ func (a nfseAdapter) SignerForNFSe(ctx context.Context, tenantID, issuerRef stri
 	return c, err
 }
 
-func (a nfseAdapter) ReserveDPS(ctx context.Context, tenantID, issuerRef, env string, series int, docRef string) (string, int, error) {
-	r, err := a.numbers.Reserve(ctx, entity.SeriesKey{TenantID: tenantID, IssuerRef: issuerRef, Model: 99, Series: series,
-		Environment: env}, docRef)
-	return r.ID, r.Number, err
+func (a nfseAdapter) ReserveDPS(ctx context.Context, tenantID, issuerRef, env string, series int, docRef, claim string) (string, int, string, error) {
+	r, err := a.numbers.ReserveClaimed(ctx, entity.SeriesKey{TenantID: tenantID, IssuerRef: issuerRef, Model: 99, Series: series,
+		Environment: env}, docRef, claim)
+	return r.ID, r.Number, r.DocumentRef, err
 }
 
 func (a nfseAdapter) CloseDPS(ctx context.Context, tenantID, ref string) error {

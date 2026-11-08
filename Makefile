@@ -18,6 +18,9 @@ build: ## Compila o binário
 test: ## Só os testes sem banco — rápido
 	go test ./... -race
 
+load: ## Simulação de carga (sem -race, que distorce a medição): vazão, latência e nota duplicada
+	TEST_TARGET=./shared/server LOAD_TEST=1 ./scripts/test-integration.sh -run TestCarga -v -timeout 30m
+
 check: ## gofmt, vet e a suíte inteira com Postgres 18 descartável (precisa do Docker)
 	gofmt -l . | tee /dev/stderr | (! read)
 	go vet ./...

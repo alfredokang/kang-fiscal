@@ -117,8 +117,8 @@ func (s *InvoiceService) Issue(ctx context.Context, cmd IssueCommand) (*entity.I
 	if err != nil {
 		return nil, err
 	}
-	resRef, number, err := s.d.Numbers.ReserveNumber(ctx, output.NumberKey{TenantID: cmd.TenantID, IssuerRef: cmd.IssuerRef,
-		Environment: issuer.Environment, Model: draft.Model, Series: draft.Series}, id.String())
+	resRef, number, docID, err := s.d.Numbers.ReserveNumber(ctx, output.NumberKey{TenantID: cmd.TenantID, IssuerRef: cmd.IssuerRef,
+		Environment: issuer.Environment, Model: draft.Model, Series: draft.Series}, id.String(), key)
 	if err != nil {
 		return nil, err
 	}
@@ -141,16 +141,30 @@ func (s *InvoiceService) Issue(ctx context.Context, cmd IssueCommand) (*entity.I
 
 	now := s.d.Now()
 	inv := &entity.Invoice{
-		ID: id.String(), TenantID: cmd.TenantID, IssuerRef: cmd.IssuerRef, IdempotencyKey: key,
+		ID: docID, TenantID: cmd.TenantID, IssuerRef: cmd.IssuerRef, IdempotencyKey: key,
 		RequestHash: cmd.RequestHash, Model: draft.Model, Series: draft.Series, Number: number,
 		ReservationRef: resRef, Environment: issuer.Environment, AccessKey: akey.String(),
 		Status: entity.StatusSigned, TotalAmount: doc.InfNFe.Total.ICMSTot.VNF.String(), SignedXML: signed,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.d.Repo.Create(ctx, inv); err != nil {
-		return nil, err
+		return s.lostRace(ctx, cmd, err)
 	}
 	return s.send(ctx, inv, cert, issuer.Address.UF, true)
+}
+
+// lostRace trata a gravação recusada. A causa comum é a mesma venda chegando duas vezes ao
+// mesmo tempo: as duas reservaram o mesmo número e só uma gravou. A que perdeu devolve a
+// nota da outra como está — sem reenviar: quem ganhou está enviando agora.
+func (s *InvoiceService) lostRace(ctx context.Context, cmd IssueCommand, cause error) (*entity.Invoice, error) {
+	existing, err := s.d.Repo.FindByIdempotencyKey(ctx, cmd.TenantID, strings.TrimSpace(cmd.IdempotencyKey))
+	if err != nil {
+		return nil, cause
+	}
+	if existing.RequestHash != cmd.RequestHash {
+		return nil, domain.ErrIdempotencyConflict
+	}
+	return existing, nil
 }
 
 func (s *InvoiceService) computeTaxes(ctx context.Context, tenantID string, d service.Draft, issuer service.IssuerSnapshot) ([]tax.Result, error) {

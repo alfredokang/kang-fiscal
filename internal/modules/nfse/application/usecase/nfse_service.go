@@ -102,7 +102,7 @@ func (s *Service) Issue(ctx context.Context, cmd IssueCommand) (*entity.ServiceI
 	if err != nil {
 		return nil, err
 	}
-	ref, number, err := s.numbers.ReserveDPS(ctx, cmd.TenantID, cmd.IssuerRef, issuer.Environment, d.Series, id.String())
+	ref, number, docID, err := s.numbers.ReserveDPS(ctx, cmd.TenantID, cmd.IssuerRef, issuer.Environment, d.Series, id.String(), idem)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +119,20 @@ func (s *Service) Issue(ctx context.Context, cmd IssueCommand) (*entity.ServiceI
 		return nil, err
 	}
 	now := s.now()
-	inv := &entity.ServiceInvoice{ID: id.String(), TenantID: cmd.TenantID, IssuerRef: cmd.IssuerRef, IdempotencyKey: idem,
+	inv := &entity.ServiceInvoice{ID: docID, TenantID: cmd.TenantID, IssuerRef: cmd.IssuerRef, IdempotencyKey: idem,
 		RequestHash: cmd.RequestHash, Series: d.Series, Number: number, ReservationRef: ref, Environment: issuer.Environment,
 		DPSID: dps.InfDPS.ID, Status: entity.StatusSigned, Total: d.Amount.String(), SignedXML: signed, CreatedAt: now, UpdatedAt: now}
 	if err := s.repo.Create(ctx, inv); err != nil {
-		return nil, err
+		// A mesma venda chegou duas vezes ao mesmo tempo: a mesma reserva e o mesmo Id de DPS,
+		// e só uma gravou. A outra devolve a gravada, sem reenviar.
+		existing, ferr := s.repo.FindByIdempotencyKey(ctx, cmd.TenantID, idem)
+		if ferr != nil {
+			return nil, err
+		}
+		if existing.RequestHash != cmd.RequestHash {
+			return nil, domain.ErrIdempotencyConflict
+		}
+		return existing, nil
 	}
 	return s.send(ctx, inv, cert, true)
 }

@@ -310,6 +310,24 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Especificação OpenAPI 3.1 (`/openapi.yaml`) e documentação navegável (`/docs`), conferidas contra as rotas reais a cada build | ✅ |
 | SDKs (TS, PHP, Python) gerados da especificação | 🔜 F6 |
 
+## Desempenho
+
+`make load` simula vendas em volume: a API num servidor HTTP real, o Postgres 18 com o pool
+da produção (20 conexões) e uma SEFAZ simulada. No fim, confere no banco e na "SEFAZ" que
+nenhuma venda virou duas notas e que a numeração não tem buraco nem repetição. Numa máquina
+de desenvolvimento (Apple Silicon, Postgres no Docker local), uma instância só:
+
+| Cenário | Vazão | Latência (p50 / p99) |
+|---|---|---|
+| SEFAZ instantânea — o teto do próprio Kang Fiscal | ~250 a 440 notas/s | 0,2 s / 0,5 s |
+| SEFAZ realista (200 a 800 ms por nota), 200 clientes simultâneos | ~190 a 330 notas/s | 0,6 s / 1,0 s |
+| Caos: 10% das respostas da SEFAZ se perdem e 5% das vendas são reenviadas ao mesmo tempo | ~170 a 260 notas/s | 0,6 s / 1,5 s |
+
+Nos três, **zero nota duplicada e zero buraco na numeração**. São números de uma máquina, não
+uma promessa: o limite real em produção é quanto a SEFAZ da sua UF aceita. A API não guarda
+estado, então dá para rodar várias réplicas; para volume alto de NFC-e, use uma série por
+caixa.
+
 ## Documentação da API
 
 Com o Kang Fiscal rodando, abra `http://localhost:8080/docs`. A especificação está em

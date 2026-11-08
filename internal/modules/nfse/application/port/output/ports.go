@@ -29,7 +29,9 @@ type SignerProvider interface {
 
 // NumberReserver reserva o número da DPS (modelo 99 no numbering).
 type NumberReserver interface {
-	ReserveDPS(ctx context.Context, tenantID, issuerRef, environment string, series int, documentRef string) (ref string, number int, err error)
+	// claim é a Idempotency-Key: a mesma venda recebe a mesma reserva, e docRef é o id
+	// que a NFS-e deve ter.
+	ReserveDPS(ctx context.Context, tenantID, issuerRef, environment string, series int, documentRef, claim string) (ref string, number int, docRef string, err error)
 	CloseDPS(ctx context.Context, tenantID, ref string) error
 }
 

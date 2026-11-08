@@ -12,7 +12,8 @@ import (
 type SeriesRepository interface {
 	// Reserve entrega o próximo número da série numa transação com SELECT … FOR UPDATE:
 	// duas emissões ao mesmo tempo nunca recebem o mesmo número. A série nasce em 1.
-	Reserve(ctx context.Context, key entity.SeriesKey, documentRef string, at time.Time) (entity.Reservation, error)
+	// claim vazio = reserva nova sempre; com claim, a mesma reserva para a mesma venda.
+	Reserve(ctx context.Context, key entity.SeriesKey, documentRef, claim string, at time.Time) (entity.Reservation, error)
 	// SetNext ajusta o próximo número (migração de outro sistema). Recusa voltar para
 	// número já reservado.
 	SetNext(ctx context.Context, key entity.SeriesKey, next int) error

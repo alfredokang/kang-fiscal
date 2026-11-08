@@ -43,7 +43,9 @@ type NumberKey struct {
 
 // NumberReserver reserva e fecha números.
 type NumberReserver interface {
-	ReserveNumber(ctx context.Context, key NumberKey, documentRef string) (reservationRef string, number int, err error)
+	// claim é a Idempotency-Key: a mesma venda recebe a mesma reserva. documentRef de volta
+	// é o id que a nota deve ter (o de quem reservou primeiro).
+	ReserveNumber(ctx context.Context, key NumberKey, documentRef, claim string) (reservationRef string, number int, docRef string, err error)
 	MarkNumberUsed(ctx context.Context, tenantID, reservationRef string) error
 	MarkNumberVoided(ctx context.Context, tenantID, reservationRef string) error
 	// PendingNumbers lista os números reservados há mais que o corte e ainda abertos.

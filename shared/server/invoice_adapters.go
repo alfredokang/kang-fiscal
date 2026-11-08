@@ -80,10 +80,10 @@ type invoiceNumberAdapter struct {
 	numbers *numberingusecase.NumberingService
 }
 
-func (a invoiceNumberAdapter) ReserveNumber(ctx context.Context, k invoiceout.NumberKey, documentRef string) (string, int, error) {
-	r, err := a.numbers.Reserve(ctx, entity.SeriesKey{TenantID: k.TenantID, IssuerRef: k.IssuerRef, Model: k.Model,
-		Series: k.Series, Environment: k.Environment}, documentRef)
-	return r.ID, r.Number, err
+func (a invoiceNumberAdapter) ReserveNumber(ctx context.Context, k invoiceout.NumberKey, documentRef, claim string) (string, int, string, error) {
+	r, err := a.numbers.ReserveClaimed(ctx, entity.SeriesKey{TenantID: k.TenantID, IssuerRef: k.IssuerRef, Model: k.Model,
+		Series: k.Series, Environment: k.Environment}, documentRef, claim)
+	return r.ID, r.Number, r.DocumentRef, err
 }
 
 func (a invoiceNumberAdapter) MarkNumberUsed(ctx context.Context, tenantID, reservationRef string) error {

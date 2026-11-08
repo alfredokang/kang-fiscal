@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +20,7 @@ type SeriesRepository struct{ db *sql.DB }
 func NewSeriesRepository(db *sql.DB) *SeriesRepository { return &SeriesRepository{db: db} }
 
 // Reserve entrega o próximo número sob lock da linha da série.
-func (r *SeriesRepository) Reserve(ctx context.Context, k entity.SeriesKey, documentRef string, at time.Time) (entity.Reservation, error) {
+func (r *SeriesRepository) Reserve(ctx context.Context, k entity.SeriesKey, documentRef, claim string, at time.Time) (entity.Reservation, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return entity.Reservation{}, err
@@ -38,6 +39,21 @@ func (r *SeriesRepository) Reserve(ctx context.Context, k entity.SeriesKey, docu
 		k.TenantID, k.IssuerRef, k.Model, k.Series, k.Environment).Scan(&next); err != nil {
 		return entity.Reservation{}, err
 	}
+	// A reivindicação é conferida DEPOIS do lock da série: as duas requisições da mesma venda
+	// se enfileiram nele, e a segunda já enxerga a reserva que a primeira gravou.
+	if claim != "" {
+		var res entity.Reservation
+		err := tx.QueryRowContext(ctx, `SELECT id, number, document_ref FROM numbering_reservations
+			WHERE tenant_id = $1 AND issuer_ref = $2 AND model = $3 AND series = $4 AND environment = $5 AND claim_key = $6`,
+			k.TenantID, k.IssuerRef, k.Model, k.Series, k.Environment, claim).Scan(&res.ID, &res.Number, &res.DocumentRef)
+		if err == nil {
+			res.Key, res.Status = k, entity.StatusReserved
+			return res, tx.Commit()
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return entity.Reservation{}, err
+		}
+	}
 	if next > entity.MaxNumber {
 		return entity.Reservation{}, domain.ErrExhausted
 	}
@@ -46,9 +62,9 @@ func (r *SeriesRepository) Reserve(ctx context.Context, k entity.SeriesKey, docu
 		return entity.Reservation{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO numbering_reservations
-		(id, tenant_id, issuer_ref, model, series, environment, number, document_ref, reserved_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		id.String(), k.TenantID, k.IssuerRef, k.Model, k.Series, k.Environment, next, documentRef, at); err != nil {
+		(id, tenant_id, issuer_ref, model, series, environment, number, document_ref, reserved_at, claim_key)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''))`,
+		id.String(), k.TenantID, k.IssuerRef, k.Model, k.Series, k.Environment, next, documentRef, at, claim); err != nil {
 		return entity.Reservation{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE numbering_series SET next_number = next_number + 1
