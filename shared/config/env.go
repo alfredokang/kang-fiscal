@@ -29,7 +29,7 @@ type EnvConfig struct {
 	PostgresPort     string `envconfig:"POSTGRES_PORT" default:"5432"`
 	PostgresSSLMode  string `envconfig:"POSTGRES_SSL_MODE" default:"disable"`
 
-	// SecretsEncryptionKey cifra a chave privada do certificado A1, a senha dele e o CSC
+	// SecretsEncryptionKey cifra a chave privada do certificado A1 e a senha dele
 	// (Constituição, Art. 9.1). 32 bytes em base64: `openssl rand -base64 32`. Fica SÓ
 	// aqui — a cópia do banco não pode levar a chave junto. Trocar a chave torna ilegíveis
 	// os certificados já gravados: é preciso enviá-los de novo.

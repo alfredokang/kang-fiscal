@@ -50,6 +50,67 @@ docker run --rm -e POSTGRES_HOST=... -e POSTGRES_USER=... -e POSTGRES_PASSWORD=.
 docker run -d -p 8080:8080 -e ADMIN_TOKEN=... -e POSTGRES_HOST=... alfredokang/kang-fiscal
 ```
 
+## Configuração
+
+Tudo vem de variáveis de ambiente (ou de um `.env` ao lado do binário). O
+[`.env.example`](.env.example) traz todas comentadas.
+
+### Obrigatórias
+
+| Variável | Para quê |
+|---|---|
+| `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | O banco: Postgres 18, a versão testada |
+| `ADMIN_TOKEN` | Protege as rotas `/v1/admin`. **Vazio desliga essas rotas** (respondem 503) |
+| `SECRETS_ENCRYPTION_KEY` | 32 bytes em base64. Cifra (AES-256-GCM) a chave privada e a senha do certificado A1 no banco. Sem ela, o envio de certificado é recusado |
+
+Gere os segredos com `openssl rand -base64 32`, um diferente para cada variável.
+
+> ⚠️ **Guarde a `SECRETS_ENCRYPTION_KEY` fora do servidor.** Sem ela, os certificados
+> gravados no banco não podem ser lidos: o backup do Postgres sozinho não basta, e a única
+> saída é enviar os certificados de novo.
+
+### Opcionais
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `API_PORT` | `8080` | Porta HTTP |
+| `ENVIRONMENT` | `development` | `production` liga o log em JSON |
+| `POSTGRES_PORT` | `5432` | |
+| `POSTGRES_SSL_MODE` | `disable` | `require` ou `verify-full` quando o banco está em outra máquina |
+| `CREDENTIAL_PEPPER` | — | Necessária só para criar credenciais de tenant (`kf_...`). Trocar invalida todas |
+| `RATE_LIMIT_PER_MINUTE` | `600` | Requisições por credencial por minuto; `0` desliga |
+| `RESP_TEC_CNPJ`, `RESP_TEC_CONTACT`, `RESP_TEC_EMAIL`, `RESP_TEC_PHONE` | — | Responsável técnico (`infRespTec`) — a empresa que mantém o emissor. Várias UFs exigem; vazio, o grupo não vai na nota |
+| `VOID_SWEEP_MINUTES` | `60` | De quanto em quanto tempo o worker roda |
+| `VOID_AFTER_HOURS` | `24` | Depois de quanto tempo um número reservado sem nota é inutilizado |
+
+### Os processos
+
+A mesma imagem roda tudo; o comando escolhe o papel:
+
+| Comando | O que faz |
+|---|---|
+| `migrate` | Cria e atualiza as tabelas. Rode antes da `api` a cada versão nova |
+| `api` | A API HTTP |
+| `worker` | Tarefas periódicas: transmite NFC-e offline, encerra contingências, busca notas de fornecedores, resolve notas e cancelamentos sem resposta e inutiliza números sem nota. Pode ter mais de uma réplica: um lock no Postgres garante uma rodada por vez |
+| `sefaz-status` | Testa o certificado A1 contra a SEFAZ, sem banco |
+| `healthcheck` | Usado pelo `HEALTHCHECK` da imagem |
+
+## Em produção
+
+- **HTTPS na frente.** A API fala HTTP puro; ponha um proxy com TLS (Caddy, Traefik,
+  Nginx). O token vai no cabeçalho de cada requisição.
+- **Backup do Postgres** todo dia, e a `SECRETS_ENCRYPTION_KEY` guardada à parte (veja acima).
+- **O `worker` rodando sempre.** Sem ele, NFC-e offline não é transmitida (prazo de 24 horas)
+  e nota sem resposta fica esperando você repetir a chamada.
+- **Homologação primeiro.** O emitente nasce em homologação; só passe para produção
+  (`POST /v1/admin/issuers/{id}/production`) depois de emitir, cancelar e imprimir lá.
+- **Relógio certo e UTC no servidor.** A SEFAZ recusa nota com horário no futuro, e o prazo
+  de cancelamento conta horas desde a emissão.
+- **Fixe a versão da imagem** (`alfredokang/kang-fiscal:<versão>`) em vez de `latest`, e rode
+  o `migrate` a cada atualização.
+
+## Primeiros passos
+
 ### Cadastrar o emitente
 
 ```bash
@@ -262,10 +323,10 @@ entre os módulos, vigiadas por testes que quebram o build. As regras estão na
 [Constituição](CONSTITUTION.md), e quem for contribuir deve começar por ela.
 
 ```
-pkg/        a biblioteca fiscal pública — não conhece banco, HTTP nem tenant
+pkg/        a biblioteca fiscal — não conhece banco, HTTP nem tenant
 internal/   os módulos da API (domain → application → infrastructure / adapter)
-shared/     infraestrutura comum: config, log, Postgres, paginação, cifra, servidor
-cmd/        a CLI: api, migrate, healthcheck
+shared/     infraestrutura comum: config, log, Postgres, paginação, cifra, servidor, OpenAPI
+cmd/        a CLI: api, migrate, worker, sefaz-status, healthcheck
 ```
 
 ## Desenvolvimento
@@ -277,13 +338,38 @@ make test    # testes sem banco
 make check   # gofmt, vet e a suíte inteira contra um Postgres 18 descartável
 ```
 
-## Licença
+## Contribuindo
 
-[Apache-2.0](LICENSE). Use em projetos comerciais à vontade; mantenha o [NOTICE](NOTICE).
+Contribuições são bem-vindas. Leia o [CONTRIBUTING.md](CONTRIBUTING.md) e a
+[Constituição](CONSTITUTION.md) antes de abrir um pull request. Encontrou uma falha de
+segurança? **Não abra issue pública** — veja o [SECURITY.md](SECURITY.md).
 
-As referências e os projetos que inspiraram este estão em
+## Licença e créditos
+
+O Kang Fiscal é distribuído sob a [Licença Apache 2.0](LICENSE): pode usar, modificar e
+vender, inclusive em produto fechado, desde que mantenha o aviso de copyright e o
+[NOTICE](NOTICE). Copyright 2026 Alfredo Kang.
+
+Ele se apoia no trabalho de outros projetos, todos com licença compatível:
+
+| O quê | De onde | Licença |
+|---|---|---|
+| Gerador de PDF do DANFE e leitura do A1 (adaptados) | [mschunke/gonfe](https://github.com/mschunke/gonfe) | MIT |
+| Endereços das SEFAZ e catálogo dos códigos de retorno | [nfephp-org/sped-nfe](https://github.com/nfephp-org/sped-nfe) | MIT |
+| Cadeia de certificados ICP-Brasil | [rffontenelle/CertificadosAC-ICP-Brasil](https://github.com/rffontenelle/CertificadosAC-ICP-Brasil) (certificados públicos do ITI) | CC0 |
+| Schemas da DPS da NFS-e Nacional (testes) | [Gomes343/PyNFSeNacional](https://github.com/Gomes343/PyNFSeNacional) | MIT |
+| Schemas do evento da NFS-e (testes) | [akretion/nfelib](https://github.com/akretion/nfelib) | MIT |
+| Leitura do `.pfx` | [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12) | BSD-3 |
+| QR Code | [skip2/go-qrcode](https://github.com/skip2/go-qrcode) | MIT |
+| Leitura do QR nos testes | [makiuchi-d/gozxing](https://github.com/makiuchi-d/gozxing) | Apache-2.0 |
+| Tabela de municípios | API de localidades do [IBGE](https://servicodados.ibge.gov.br/api/docs/localidades) | dado público |
+| Schemas da NF-e e da NFS-e | Portal da NF-e e SE/CGNFS-e (Receita Federal) | documento público |
+
+Projetos com licença LGPL/GPL (como o sped-da e a BrazilFiscalReport) foram só estudados,
+nunca copiados. A lista completa, com o que cada um ensinou, está em
 [docs/01-referencias.md](docs/01-referencias.md).
 
-> O Kang Fiscal é uma ferramenta. A responsabilidade pela emissão, pelo enquadramento
-> tributário e pelas alíquotas usadas é do emitente e do contador dele. Teste sempre em
-> homologação antes de emitir em produção.
+> **Aviso.** O Kang Fiscal é uma ferramenta, fornecida "como está", sem garantia (seções 7 e
+> 8 da licença). A responsabilidade pela emissão, pelo enquadramento tributário e pelas
+> alíquotas usadas é do emitente e do contador dele. Teste sempre em homologação antes de
+> emitir em produção.

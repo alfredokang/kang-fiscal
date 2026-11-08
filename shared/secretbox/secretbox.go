@@ -1,5 +1,5 @@
 // Package secretbox cifra os segredos que ficam no banco (a chave privada do certificado A1, a
-// senha dele, o CSC da NFC-e): AES-256-GCM, com a chave SÓ no ambiente do servidor.
+// senha dele): AES-256-GCM, com a chave SÓ no ambiente do servidor.
 //
 // Por que cifrar, se o banco já é protegido: cópia de banco circula — backup, dump para
 // testar, DataGrip na máquina de alguém. Sem a chave, o que está lá é ruído. E por que a
