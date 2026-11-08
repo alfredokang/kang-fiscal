@@ -174,6 +174,14 @@ func TestNFSeNacional(t *testing.T) {
 		t.Errorf("XML: %d", rec.Code)
 	}
 
+	drec := httptest.NewRecorder()
+	dreq := httptest.NewRequest(http.MethodGet, "/v1/nfse/"+nfseKey+"/danfse", nil)
+	dreq.Header.Set("Authorization", "Bearer "+adminToken)
+	h.ServeHTTP(drec, dreq)
+	if drec.Code != http.StatusOK || drec.Header().Get("Content-Type") != "application/pdf" || !strings.HasPrefix(drec.Body.String(), "%PDF-1.4") {
+		t.Errorf("DANFSe: %d %s", drec.Code, drec.Header().Get("Content-Type"))
+	}
+
 	code, rej := emitNFSe(t, h, "nfse-2", nfseBody(issuerID, "RECUSAR ESTE SERVICO"))
 	if code != http.StatusUnprocessableEntity || rej["status"] != "rejected" || rej["error_code"] != "E0310" {
 		t.Errorf("rejeição: %d %v", code, rej)

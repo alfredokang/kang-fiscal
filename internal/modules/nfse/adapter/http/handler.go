@@ -15,6 +15,7 @@ import (
 	"github.com/alfredokang/kang-fiscal/internal/modules/nfse/application/usecase"
 	"github.com/alfredokang/kang-fiscal/internal/modules/nfse/domain"
 	"github.com/alfredokang/kang-fiscal/internal/modules/nfse/domain/entity"
+	"github.com/alfredokang/kang-fiscal/pkg/danfe"
 	"github.com/alfredokang/kang-fiscal/pkg/decimal"
 	"github.com/alfredokang/kang-fiscal/pkg/nfse"
 	"github.com/alfredokang/kang-fiscal/shared/helpers"
@@ -179,6 +180,29 @@ func (h *Handler) XML(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(doc)
 }
 
+// DANFSe atende GET /v1/nfse/{key}/danfse: o PDF, gerado aqui a partir do XML da NFS-e
+// (a API de PDF do governo foi descontinuada em 01/07/2026).
+func (h *Handler) DANFSe(w http.ResponseWriter, r *http.Request) {
+	tenant, _ := middleware.TenantIDFrom(r.Context())
+	inv, err := h.svc.Get(r.Context(), tenant, chi.URLParam(r, "key"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if len(inv.NFSeXML) == 0 {
+		helpers.WriteError(w, http.StatusConflict, "a NFS-e ainda não foi gerada pelo Sistema Nacional", "NOT_AUTHORIZED")
+		return
+	}
+	out, err := danfe.GenerateNFSe(inv.NFSeXML, danfe.Options{Canceled: inv.Status == entity.StatusCanceled})
+	if err != nil {
+		helpers.WriteInternalError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+inv.AccessKey+`-danfse.pdf"`)
+	_, _ = w.Write(out)
+}
+
 // List atende GET /v1/nfse.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	tenant, _ := middleware.TenantIDFrom(r.Context())
@@ -229,6 +253,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 	r.Get("/nfse", h.List)
 	r.Get("/nfse/{key}", h.Get)
 	r.Get("/nfse/{key}/xml", h.XML)
+	r.Get("/nfse/{key}/danfse", h.DANFSe)
 	r.Post("/nfse/{key}/cancel", h.Cancel)
 	r.Get("/nfse/{key}/events", h.Events)
 }

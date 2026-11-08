@@ -148,7 +148,7 @@ curl -X POST localhost:8080/v1/nfse -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 O Sistema Nacional calcula IBS e CBS e devolve a NFS-e. Se a resposta se perder, o Kang
 Fiscal consulta a DPS pelo Id antes de pensar em reenviar: o mesmo serviço nunca vira duas
-notas. `GET /v1/nfse/{chave}/xml` baixa a NFS-e.
+notas. `GET /v1/nfse/{chave}/xml` baixa a NFS-e e `GET /v1/nfse/{chave}/danfse`, o DANFSe em PDF.
 
 Para cancelar:
 
@@ -241,7 +241,7 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Recebimento de notas de fornecedores e manifestação do destinatário (`/v1/dfe/...`) | ✅ |
 | NFS-e no padrão nacional (`POST /v1/nfse`), com IBS/CBS, sem duplicar nota em timeout | ✅ |
 | Cancelamento da NFS-e, direto ou por análise fiscal (`POST /v1/nfse/{chave}/cancel`) | ✅ |
-| DANFSe em PDF | 🔜 |
+| DANFSe v2.0 em PDF (`GET /v1/nfse/{chave}/danfse`), gerado localmente — a API de PDF do governo acabou em 01/07/2026 | ✅ |
 | SDKs (TS, PHP, Python) e OpenAPI | 🔜 F6 |
 
 ## Arquitetura
