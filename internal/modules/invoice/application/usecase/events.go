@@ -172,7 +172,7 @@ func (s *InvoiceService) sendEventWith(ctx context.Context, inv *entity.Invoice,
 	if err != nil {
 		return nil, err
 	}
-	res, err := s.d.Sefaz.SendEvent(ctx, cert, target(inv, issuer.Address.UF), time.Now().UnixMilli(), e.SignedXML)
+	res, err := s.d.Sefaz.SendEvent(ctx, cert, s.eventTarget(ctx, inv, issuer.Address.UF), time.Now().UnixMilli(), e.SignedXML)
 	now := s.d.Now()
 	e.UpdatedAt = now
 	switch {

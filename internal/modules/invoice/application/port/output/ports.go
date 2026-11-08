@@ -63,6 +63,7 @@ type SefazGateway interface {
 	Query(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, key string) (sefaz.QueryResult, error)
 	SendEvent(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, batchID int64, signed []byte) (sefaz.EventResult, error)
 	VoidRange(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, signed []byte) (sefaz.VoidResult, error)
+	Status(ctx context.Context, cert *certificate.Certificate, t sefaz.Target) (sefaz.StatusResult, error)
 }
 
 // VoidRepository guarda as inutilizações.
@@ -88,10 +89,27 @@ type InvoiceRepository interface {
 	// Idempotency-Key repetida no tenant devolve domain.ErrIdempotencyConflict.
 	Create(ctx context.Context, inv *entity.Invoice) error
 	Update(ctx context.Context, inv *entity.Invoice) error
+	// UpdateDocument troca o XML assinado e a chave de uma nota que a SEFAZ recusou por
+	// estar parada (108/109) e vai sair pela SVC. O gatilho recusa em nota autorizada.
+	UpdateDocument(ctx context.Context, inv *entity.Invoice) error
+	// LatestIssuer devolve o emitente da nota mais recente da UF, modelo e ambiente — o
+	// certificado dele é o que o worker usa para testar se a SEFAZ voltou.
+	LatestIssuer(ctx context.Context, cUF string, model int, environment string) (tenantID, issuerRef string, err error)
 	FindByIdempotencyKey(ctx context.Context, tenantID, key string) (*entity.Invoice, error)
 	FindByAccessKey(ctx context.Context, tenantID, accessKey string) (*entity.Invoice, error)
 	FindByID(ctx context.Context, tenantID, id string) (*entity.Invoice, error)
 	// InRange lista as notas da série com número na faixa (no máximo a faixa inteira).
 	InRange(ctx context.Context, key NumberKey, from, to int) ([]*entity.Invoice, error)
 	List(ctx context.Context, tenantID string, page pagination.Params) ([]*entity.Invoice, int64, error)
+}
+
+// ContingencyRepository guarda o estado de contingência das autorizadoras.
+type ContingencyRepository interface {
+	Get(ctx context.Context, uf string, model int, environment string) (entity.Contingency, error)
+	Activate(ctx context.Context, c entity.Contingency) error
+	Deactivate(ctx context.Context, uf string, model int, environment string) error
+	// RecordFailure soma uma falha de conexão e devolve quantas houve na janela.
+	RecordFailure(ctx context.Context, uf string, model int, environment string, at time.Time, window time.Duration) (int, error)
+	ResetFailures(ctx context.Context, uf string, model int, environment string) error
+	ListActive(ctx context.Context) ([]entity.Contingency, error)
 }

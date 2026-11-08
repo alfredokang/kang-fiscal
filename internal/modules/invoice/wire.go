@@ -31,6 +31,9 @@ func NewModule(db *sql.DB, deps usecase.Deps) *Module {
 	if deps.Voids == nil {
 		deps.Voids = postgres.NewVoidRepository(db)
 	}
+	if deps.Contingency == nil {
+		deps.Contingency = postgres.NewContingencyRepository(db)
+	}
 	if deps.Sefaz == nil {
 		deps.Sefaz = gateway.NewSefazGateway()
 	}

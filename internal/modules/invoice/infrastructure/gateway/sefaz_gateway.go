@@ -70,3 +70,12 @@ func (g *SefazGateway) VoidRange(ctx context.Context, cert *certificate.Certific
 	}
 	return c.VoidRange(ctx, t, signed)
 }
+
+// Status consulta o status do serviço.
+func (g *SefazGateway) Status(ctx context.Context, cert *certificate.Certificate, t sefaz.Target) (sefaz.StatusResult, error) {
+	c, err := g.client(cert)
+	if err != nil {
+		return sefaz.StatusResult{}, err
+	}
+	return c.Status(ctx, t)
+}

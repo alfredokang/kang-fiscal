@@ -25,17 +25,18 @@ import (
 
 // Deps são as portas da emissão.
 type Deps struct {
-	Repo     output.InvoiceRepository
-	Events   output.EventRepository
-	Voids    output.VoidRepository
-	Issuers  output.IssuerReader
-	Signers  output.SignerProvider
-	Profiles output.TaxProfiles
-	Rates    output.TaxRates
-	Numbers  output.NumberReserver
-	Sefaz    output.SefazGateway
-	RespTec  *nfe.InfRespTec
-	Now      func() time.Time
+	Repo        output.InvoiceRepository
+	Events      output.EventRepository
+	Voids       output.VoidRepository
+	Contingency output.ContingencyRepository
+	Issuers     output.IssuerReader
+	Signers     output.SignerProvider
+	Profiles    output.TaxProfiles
+	Rates       output.TaxRates
+	Numbers     output.NumberReserver
+	Sefaz       output.SefazGateway
+	RespTec     *nfe.InfRespTec
+	Now         func() time.Time
 }
 
 // InvoiceService é a fachada do módulo.
@@ -101,6 +102,11 @@ func (s *InvoiceService) Issue(ctx context.Context, cmd IssueCommand) (*entity.I
 	cert, err := s.d.Signers.SignerFor(ctx, cmd.TenantID, cmd.IssuerRef)
 	if err != nil {
 		return nil, err
+	}
+	if draft.Model == 55 {
+		if c, err := s.d.Contingency.Get(ctx, strings.ToUpper(issuer.Address.UF), 55, issuer.Environment); err == nil && c.Active {
+			draft.Contingency = &c
+		}
 	}
 	taxes, err := s.computeTaxes(ctx, cmd.TenantID, draft, issuer)
 	if err != nil {
@@ -184,7 +190,7 @@ func target(inv *entity.Invoice, uf string) sefaz.Target {
 // send envia e registra o resultado. allowRetry limita a um o ciclo consulta → reenvio: se
 // o reenvio também ficar incerto, a nota fica incerta e espera a próxima consulta.
 func (s *InvoiceService) send(ctx context.Context, inv *entity.Invoice, cert *certificate.Certificate, uf string, allowRetry bool) (*entity.Invoice, error) {
-	res, err := s.d.Sefaz.Authorize(ctx, cert, target(inv, uf), time.Now().UnixMilli(), inv.SignedXML)
+	res, err := s.d.Sefaz.Authorize(ctx, cert, emissionTarget(inv, uf), time.Now().UnixMilli(), inv.SignedXML)
 	switch {
 	case errors.Is(err, sefaz.ErrCertificateRejected), errors.Is(err, sefaz.ErrServerUntrusted):
 		inv.Settle(entity.StatusNotSent, 0, err.Error(), s.d.Now())
@@ -198,10 +204,29 @@ func (s *InvoiceService) send(ctx context.Context, inv *entity.Invoice, cert *ce
 		if uerr := s.d.Repo.Update(ctx, inv); uerr != nil {
 			return nil, uerr
 		}
+		if normalEmission(inv) {
+			// A nota incerta NÃO vai para a SVC: ela pode ter sido autorizada pela UF, e a
+			// SVC daria outra chave à mesma venda. Só as próximas notas saem por lá.
+			s.recordFailure(ctx, inv, uf, err)
+		}
 		if !allowRetry {
 			return inv, nil
 		}
 		return s.reconcile(ctx, inv, cert, uf, false)
+	}
+	if normalEmission(inv) {
+		_ = s.d.Contingency.ResetFailures(ctx, uf, inv.Model, inv.Environment)
+	}
+	// SEFAZ parada (108/109): o lote foi recusado, a nota com certeza não foi autorizada.
+	// Liga a SVC e reemite com o mesmo número — a venda não para.
+	if down := entity.IsServiceDown(res.BatchCStat) || (res.Protocol != nil && entity.IsServiceDown(res.Protocol.CStat)); down && normalEmission(inv) {
+		cStat, motive := res.BatchCStat, res.BatchMotive
+		if res.Protocol != nil {
+			cStat, motive = res.Protocol.CStat, res.Protocol.Motive
+		}
+		if err := s.activate(ctx, uf, inv.Model, inv.Environment, fmt.Sprintf("SEFAZ %s parada: %d %s", uf, cStat, motive)); err == nil {
+			return s.reissueInContingency(ctx, inv, cert, uf)
+		}
 	}
 	// Duplicidade (204) é a SEFAZ dizendo que esta chave já foi recebida — um envio anterior
 	// chegou lá. Não é rejeição: consulta-se o protocolo que já existe.
@@ -242,7 +267,7 @@ func (s *InvoiceService) apply(ctx context.Context, inv *entity.Invoice, p *sefa
 // é seguro reenviar o MESMO XML assinado. Sem resposta, fica incerta e a próxima chamada
 // com a mesma Idempotency-Key (ou o GET com sync) tenta de novo.
 func (s *InvoiceService) reconcile(ctx context.Context, inv *entity.Invoice, cert *certificate.Certificate, uf string, allowResend bool) (*entity.Invoice, error) {
-	q, err := s.d.Sefaz.Query(ctx, cert, target(inv, uf), inv.AccessKey)
+	q, err := s.d.Sefaz.Query(ctx, cert, emissionTarget(inv, uf), inv.AccessKey)
 	if err != nil {
 		return inv, nil // continua incerta; nada a fazer sem resposta
 	}

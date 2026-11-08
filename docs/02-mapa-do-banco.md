@@ -14,6 +14,7 @@ como de algum módulo.
 | `numbering_series` | `numbering` | O próximo número de cada emitente, modelo, série e ambiente. Lida com `FOR UPDATE` na reserva. |
 | `numbering_reservations` | `numbering` | Cada número entregue a um documento (`reserved`, `used`, `voided`). As abertas e antigas são os buracos a inutilizar. Número único por série. |
 | `invoice_invoices` | `invoice` | As notas: chave de acesso e XML assinado gravados ANTES do envio, estado (signed, authorized, denied, rejected, uncertain, not_sent), cStat, protocolo e o nfeProc com SHA-256. Gatilho recusa alterar o XML autorizado, apagar nota autorizada, denegada ou cancelada, e qualquer mudança de estado que não seja autorizada → cancelada. Uma por Idempotency-Key no tenant. |
+| `invoice_contingency` | `invoice` | O estado de contingência por UF, modelo e ambiente: SVC ativa (SVCAN/SVCRS), motivo, início (o dhCont das notas) e as falhas de conexão seguidas. Sem tenant: a SEFAZ é a mesma para todos. |
 | `invoice_events` | `invoice` | Cancelamentos (110111) e cartas de correção (110110): evento assinado gravado antes do envio, cStat, protocolo e o procEventoNFe. Registrado é imutável (gatilho). Tipo+sequência únicos por nota, exceto os rejeitados. |
 | `invoice_voids` | `invoice` | As inutilizações de faixa: pedido assinado gravado antes do envio, cStat, protocolo, procInutNFe e as reservas que a faixa fecha. Homologada é imutável (gatilho). |
 | `schema_migrations` | — | O que o `kang-fiscal migrate` já aplicou, por módulo e arquivo. |

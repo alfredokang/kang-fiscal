@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain"
+	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain/entity"
 	"github.com/alfredokang/kang-fiscal/pkg/accesskey"
 	"github.com/alfredokang/kang-fiscal/pkg/decimal"
 	"github.com/alfredokang/kang-fiscal/pkg/nfce"
@@ -77,6 +78,8 @@ type Draft struct {
 	FreightMode    int // modFrete: 9 sem frete
 	AdditionalInfo string
 	RespTec        *nfe.InfRespTec
+	// Contingency, quando ativa, faz a nota sair pela SVC (tpEmis 6 ou 7).
+	Contingency *entity.Contingency
 }
 
 // Validate confere o que impede a emissão antes de reservar número.
@@ -140,8 +143,12 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 		tpAmb = 1
 	}
 	issued := d.Issued.In(timezoneOf(issuer.Address.UF))
+	tpEmis := 1
+	if d.Contingency != nil && d.Contingency.Active {
+		tpEmis = d.Contingency.EmissionType()
+	}
 	key, err := accesskey.Build(accesskey.Parts{UFCode: ufCode, Issued: issued, Document: issuer.CNPJ,
-		Model: accesskey.Model(d.Model), Series: d.Series, Number: number, EmissionType: 1, Code: code})
+		Model: accesskey.Model(d.Model), Series: d.Series, Number: number, EmissionType: tpEmis, Code: code})
 	if err != nil {
 		return nil, "", err
 	}
@@ -213,7 +220,7 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 		ID: "NFe" + k,
 		Ide: nfe.Ide{CUF: ufCode, CNF: k[35:43], NatOp: clean(d.NatOp, 60), Mod: d.Model, Serie: d.Series, NNF: number,
 			DhEmi: issued.Format("2006-01-02T15:04:05-07:00"), TpNF: 1, IdDest: idDest, CMunFG: issuer.Address.CityCode,
-			TpImp: tpImp, TpEmis: 1, CDV: int(k[43] - '0'), TpAmb: tpAmb, FinNFe: orDefault(d.Purpose, 1), IndFinal: indFinal,
+			TpImp: tpImp, TpEmis: tpEmis, CDV: int(k[43] - '0'), TpAmb: tpAmb, FinNFe: orDefault(d.Purpose, 1), IndFinal: indFinal,
 			IndPres: presence, ProcEmi: 0, VerProc: "kang-fiscal"},
 		Emit: nfe.Emit{CNPJ: issuer.CNPJ, XNome: clean(issuer.Name, 60), XFant: clean(issuer.TradeName, 60),
 			EnderEmit: address(issuer.Address, true), IE: issuer.IE, CRT: issuer.CRT},
@@ -224,6 +231,9 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 		Pag:        pag,
 		InfRespTec: d.RespTec,
 	}}
+	if tpEmis != 1 {
+		ApplyContingency(&n.InfNFe.Ide, *d.Contingency, issuer.Address.UF)
+	}
 	if info := clean(d.AdditionalInfo, 5000); info != "" {
 		n.InfNFe.InfAdic = &nfe.InfAdic{InfCpl: info}
 	}
@@ -312,4 +322,15 @@ func TimezoneForUFCode(code int) *time.Location {
 		}
 	}
 	return timezoneOf("")
+}
+
+// ApplyContingency preenche dhCont e xJust: a entrada em contingência e o motivo, que o
+// leiaute exige quando tpEmis não é 1.
+func ApplyContingency(ide *nfe.Ide, c entity.Contingency, uf string) {
+	ide.TpEmis = c.EmissionType()
+	ide.DhCont = c.StartedAt.In(timezoneOf(uf)).Format("2006-01-02T15:04:05-07:00")
+	ide.XJust = clean(c.Reason, 256)
+	if len([]rune(ide.XJust)) < 15 {
+		ide.XJust = "SEFAZ autorizadora indisponivel"
+	}
 }

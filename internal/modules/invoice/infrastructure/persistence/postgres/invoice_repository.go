@@ -52,6 +52,25 @@ func (r *InvoiceRepository) Update(ctx context.Context, i *entity.Invoice) error
 	return err
 }
 
+// UpdateDocument troca o XML assinado e a chave (nota que vai sair pela SVC).
+func (r *InvoiceRepository) UpdateDocument(ctx context.Context, i *entity.Invoice) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE invoice_invoices SET access_key = $3, signed_xml = $4, updated_at = $5
+		WHERE tenant_id = $1 AND id = $2 AND authorized_xml IS NULL`, i.TenantID, i.ID, i.AccessKey, i.SignedXML, i.UpdatedAt)
+	return err
+}
+
+// LatestIssuer devolve o emitente da nota mais recente da UF (pelo cUF da chave).
+func (r *InvoiceRepository) LatestIssuer(ctx context.Context, cUF string, model int, env string) (string, string, error) {
+	var tenant, issuer string
+	err := r.db.QueryRowContext(ctx, `SELECT tenant_id, issuer_ref FROM invoice_invoices
+		WHERE left(access_key, 2) = $1 AND model = $2 AND environment = $3
+		ORDER BY created_at DESC LIMIT 1`, cUF, model, env).Scan(&tenant, &issuer)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", domain.ErrNotFound
+	}
+	return tenant, issuer, err
+}
+
 // FindByIdempotencyKey lê a nota de uma Idempotency-Key.
 func (r *InvoiceRepository) FindByIdempotencyKey(ctx context.Context, tenantID, key string) (*entity.Invoice, error) {
 	return r.one(ctx, `WHERE tenant_id = $1 AND idempotency_key = $2`, tenantID, key)

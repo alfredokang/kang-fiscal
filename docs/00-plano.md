@@ -45,7 +45,7 @@ webhook (`invoice.split_data`).
 | `numbering` | (inutilização automática pelo worker do `invoice`: rejeitada, não enviada e reserva sem nota; incerta é consultada antes e nunca inutilizada) Série e número com `FOR UPDATE` (50 reservas simultâneas sem buraco nem repetição), homologação e produção separadas, ajuste para quem migra sem poder voltar, lista de buracos a inutilizar | ✅ F1 |
 | `taxrule` | Perfis tributários do tenant, alíquotas de IBS/CBS por vigência e local (só 2026 semeado; sem alíquota, a emissão para), `POST /v1/admin/tax/simulate` | ✅ F1 |
 | `invoice` | `POST /v1/nfe` (NF-e 55): Idempotency-Key, número, tributos pelo perfil, XML assinado e chave gravados antes do envio, consulta pela chave quando incerto, duplicidade tratada como consulta, nfeProc imutável com hash. Cancelamento e carta de correção com procEventoNFe, reenvio seguro (573 = registrado). Faltam: NFC-e e DANFE | ✅ F1 |
-| `contingency` | Status por UF, SVC-AN/SVC-RS automático, EPEC, NFC-e offline | F3 |
+| `contingency` (no `invoice`) | SVC-AN/SVC-RS da NF-e: ligada por 108/109 (reemite a mesma venda com o mesmo número) ou por 3 falhas de conexão em 10 min (só as próximas notas; a incerta nunca vai para a SVC); sonda no worker desliga quando a UF volta; manual em /v1/admin/contingency. Faltam: NFC-e offline e EPEC | ✅ F2 (SVC) |
 | `dfe` | DistribuiçãoDF-e por NSU, manifestação do destinatário | F4 |
 | `nfse` | NFS-e no padrão nacional (DPS + Sefin Nacional) | F5 |
 | `webhook` | Eventos de saída assinados (HMAC) com outbox e retentativa | F2 |

@@ -18,8 +18,9 @@ import (
 // varre por vez — duas inutilizando a mesma faixa ao mesmo tempo dariam rejeição na segunda.
 const workerLock = 727_001
 
-// Worker roda as tarefas periódicas: hoje, a varredura que inutiliza os buracos da
-// numeração (e concilia as notas incertas no caminho).
+// Worker roda as tarefas periódicas: a sonda que encerra a contingência quando a SEFAZ da
+// UF volta, e a varredura que inutiliza os buracos da numeração (e concilia as notas
+// incertas no caminho).
 var Worker = &cobra.Command{
 	Use:   "worker",
 	Short: "Roda as tarefas periódicas (inutilização dos números sem nota)",
@@ -50,6 +51,10 @@ var Worker = &cobra.Command{
 				return
 			}
 			defer conn.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, workerLock) //nolint:errcheck
+			// Primeiro a sonda: se a UF voltou, a varredura já concilia as incertas pela UF.
+			if restored := srv.Invoices().ProbeContingencies(ctx); len(restored) > 0 {
+				logger.SugaredLogger.Infow("contingência encerrada: autorizadora de volta", "ufs", restored)
+			}
 			res := srv.Invoices().SweepPending(ctx, age, 500)
 			if res.Checked > 0 || len(res.Errors) > 0 {
 				logger.SugaredLogger.Infow("varredura de inutilização", "conferidos", res.Checked,

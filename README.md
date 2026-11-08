@@ -203,7 +203,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Inutilização manual (`POST /v1/nfe/void-range`) e automática (`kang-fiscal worker`) | ✅ |
 | Credenciais por tenant (`kf_...`) com escopos e limite por minuto | ✅ |
 | NFC-e (modelo 65) com QR Code v3 e DANFCE em bobina de 80 mm | ✅ |
-| Contingência (SVC e offline), DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
+| Contingência SVC automática da NF-e (e a nota incerta nunca vira duas) | ✅ |
+| NFC-e offline, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

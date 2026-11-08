@@ -10,6 +10,9 @@ import (
 // RegisterAdminRoutes pendura a varredura de inutilização.
 func RegisterAdminRoutes(r chi.Router, h *handler.InvoiceHandler) {
 	r.Post("/void-sweep", h.Sweep)
+	r.Get("/contingency", h.Contingencies)
+	r.Post("/contingency", h.ActivateContingency)
+	r.Delete("/contingency/{uf}", h.DeactivateContingency)
 }
 
 // RegisterRoutes pendura as rotas da NF-e.

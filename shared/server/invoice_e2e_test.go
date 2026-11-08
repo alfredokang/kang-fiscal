@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -31,6 +32,17 @@ type fakeSefaz struct {
 	event      func(signed []byte) (sefaz.EventResult, error)
 	eventCalls atomic.Int32
 	voidCalls  atomic.Int32
+	// targets registra para onde cada autorização foi (normal ou SVC).
+	mu      sync.Mutex
+	targets []sefaz.Contingency
+	status  func() (sefaz.StatusResult, error)
+}
+
+func (f *fakeSefaz) Status(context.Context, *certificate.Certificate, sefaz.Target) (sefaz.StatusResult, error) {
+	if f.status != nil {
+		return f.status()
+	}
+	return sefaz.StatusResult{CStat: 107, Motive: "Servico em Operacao"}, nil
 }
 
 func (f *fakeSefaz) SendEvent(_ context.Context, _ *certificate.Certificate, _ sefaz.Target, _ int64, signed []byte) (sefaz.EventResult, error) {
@@ -71,8 +83,11 @@ func keyOf(signed []byte) string {
 	return s[i+7 : i+7+44]
 }
 
-func (f *fakeSefaz) Authorize(_ context.Context, _ *certificate.Certificate, _ sefaz.Target, _ int64, signed []byte) (sefaz.AuthorizeResult, error) {
+func (f *fakeSefaz) Authorize(_ context.Context, _ *certificate.Certificate, tg sefaz.Target, _ int64, signed []byte) (sefaz.AuthorizeResult, error) {
 	f.authorizeCalls.Add(1)
+	f.mu.Lock()
+	f.targets = append(f.targets, tg.Contingency)
+	f.mu.Unlock()
 	if _, err := xmldsig.Verify(signed); err != nil {
 		return sefaz.AuthorizeResult{BatchCStat: 104, Protocol: protocol(keyOf(signed), 297, "Rejeição: Assinatura difere do calculado")}, nil
 	}
