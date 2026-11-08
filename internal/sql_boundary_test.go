@@ -27,6 +27,7 @@ import (
 // TestTodaTabelaTemDono confere que ela acompanha as migrations.
 var tableOwners = map[string]string{
 	"certificate_certificates": "certificate",
+	"invoice_invoices":         "invoice",
 	"issuer_issuers":           "issuer",
 	"numbering_reservations":   "numbering",
 	"numbering_series":         "numbering",

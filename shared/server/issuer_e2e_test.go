@@ -17,7 +17,9 @@ import (
 
 const adminToken = "token-de-teste"
 
-// openIntegrationDB abre o Postgres DESCARTÁVEL do `make check`. Sem INTEGRATION_DB=1 o
+// openIntegrationDB abre o Postgres DESCARTÁVEL do `make check` e zera as tabelas. TRUNCATE,
+// e não DELETE: a nota autorizada tem gatilho que recusa DELETE, e é assim que deve ser.
+// Sem INTEGRATION_DB=1 o
 // teste é pulado: ele nunca roda contra o banco de desenvolvimento (scripts/test-integration.sh).
 func openIntegrationDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -29,7 +31,7 @@ func openIntegrationDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.Exec(`DELETE FROM issuer_issuers; DELETE FROM certificate_certificates; DELETE FROM taxrule_profiles; DELETE FROM numbering_reservations; DELETE FROM numbering_series; DELETE FROM taxrule_rates WHERE valid_from >= '2027-01-01'`); err != nil {
+	if _, err := db.Exec(`TRUNCATE issuer_issuers, certificate_certificates, taxrule_profiles, numbering_reservations, numbering_series, invoice_invoices; DELETE FROM taxrule_rates WHERE valid_from >= '2027-01-01'`); err != nil {
 		t.Fatal(err)
 	}
 	return db
@@ -46,6 +48,11 @@ func newHandler(t *testing.T, db *sql.DB) http.Handler {
 
 func do(t *testing.T, h http.Handler, method, path, token string, body any) (*httptest.ResponseRecorder, map[string]any) {
 	t.Helper()
+	return doWithHeader(t, h, method, path, token, nil, body)
+}
+
+func doWithHeader(t *testing.T, h http.Handler, method, path, token string, headers map[string]string, body any) (*httptest.ResponseRecorder, map[string]any) {
+	t.Helper()
 	var buf bytes.Buffer
 	if body != nil {
 		_ = json.NewEncoder(&buf).Encode(body)
@@ -53,6 +60,9 @@ func do(t *testing.T, h http.Handler, method, path, token string, body any) (*ht
 	req := httptest.NewRequest(method, path, &buf)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

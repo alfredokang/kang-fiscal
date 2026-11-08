@@ -12,4 +12,5 @@ como de algum módulo.
 | `taxrule_rates` | `taxrule` | As alíquotas de CBS, IBS UF e IBS municipal por vigência e local. Sem tenant: são lei. Restrição de exclusão impede duas vigentes no mesmo período. Só 2026 vem semeado. |
 | `numbering_series` | `numbering` | O próximo número de cada emitente, modelo, série e ambiente. Lida com `FOR UPDATE` na reserva. |
 | `numbering_reservations` | `numbering` | Cada número entregue a um documento (`reserved`, `used`, `voided`). As abertas e antigas são os buracos a inutilizar. Número único por série. |
+| `invoice_invoices` | `invoice` | As notas: chave de acesso e XML assinado gravados ANTES do envio, estado (signed, authorized, denied, rejected, uncertain, not_sent), cStat, protocolo e o nfeProc com SHA-256. Gatilho recusa alterar o XML autorizado e apagar nota autorizada ou denegada. Uma por Idempotency-Key no tenant. |
 | `schema_migrations` | — | O que o `kang-fiscal migrate` já aplicou, por módulo e arquivo. |

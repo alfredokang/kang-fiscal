@@ -17,9 +17,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/alfredokang/kang-fiscal/internal/modules/certificate"
+	"github.com/alfredokang/kang-fiscal/internal/modules/invoice"
+	invoiceout "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/port/output"
+	invoiceusecase "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/usecase"
 	"github.com/alfredokang/kang-fiscal/internal/modules/issuer"
 	"github.com/alfredokang/kang-fiscal/internal/modules/numbering"
 	"github.com/alfredokang/kang-fiscal/internal/modules/taxrule"
+	"github.com/alfredokang/kang-fiscal/pkg/nfe"
 	"github.com/alfredokang/kang-fiscal/shared/config"
 	"github.com/alfredokang/kang-fiscal/shared/helpers"
 	"github.com/alfredokang/kang-fiscal/shared/logger"
@@ -31,17 +35,27 @@ import (
 type Server struct {
 	db     *sql.DB
 	box    *secretbox.Box
+	sefaz  invoiceout.SefazGateway
 	router chi.Router
 }
 
+// Option ajusta o servidor (testes trocam a SEFAZ por uma falsa).
+type Option func(*Server)
+
+// WithSefaz troca o gateway da SEFAZ.
+func WithSefaz(g invoiceout.SefazGateway) Option { return func(s *Server) { s.sefaz = g } }
+
 // NewServer monta os módulos e as rotas. Chave de cifra inválida derruba o boot: subir
 // com a chave errada faria todo certificado já gravado parecer corrompido.
-func NewServer(db *sql.DB) (*Server, error) {
+func NewServer(db *sql.DB, opts ...Option) (*Server, error) {
 	box, err := secretbox.New(config.Env.SecretsEncryptionKey)
 	if err != nil {
 		return nil, err
 	}
 	s := &Server{db: db, box: box}
+	for _, o := range opts {
+		o(s)
+	}
 	s.router = s.routes()
 	return s, nil
 }
@@ -68,6 +82,15 @@ func (s *Server) routes() chi.Router {
 		certificateIssuerAdapter{issuers: issuerModule.IssuerService})
 	taxModule := taxrule.NewModule(s.db)
 	numberingModule := numbering.NewModule(s.db, numberingIssuerAdapter{issuers: issuerModule.IssuerService})
+	invoiceModule := invoice.NewModule(s.db, invoiceusecase.Deps{
+		Issuers:  invoiceIssuerAdapter{issuers: issuerModule.IssuerService},
+		Signers:  invoiceSignerAdapter{certs: certificateModule.CertificateService},
+		Profiles: invoiceTaxAdapter{taxes: taxModule.Service},
+		Rates:    invoiceTaxAdapter{taxes: taxModule.Service},
+		Numbers:  invoiceNumberAdapter{numbers: numberingModule.Service},
+		Sefaz:    s.sefaz,
+		RespTec:  respTec(),
+	})
 
 	r.Route("/v1", func(v1 chi.Router) {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que
@@ -80,8 +103,24 @@ func (s *Server) routes() chi.Router {
 			taxModule.RegisterRoutes(admin)
 			numberingModule.RegisterRoutes(admin)
 		})
+		// A emissão fica fora de /admin porque é a rota dos sistemas integrados. Até as
+		// credenciais por tenant existirem, ela usa o mesmo ADMIN_TOKEN.
+		v1.Group(func(api chi.Router) {
+			api.Use(middleware.AdminToken(config.Env.AdminToken))
+			invoiceModule.RegisterRoutes(api)
+		})
 	})
 	return r
+}
+
+// respTec é o responsável técnico pelo sistema emissor (infRespTec), exigido em várias UFs.
+// Quem instala o Kang Fiscal para clientes informa o próprio CNPJ; vazio, o grupo não vai.
+func respTec() *nfe.InfRespTec {
+	e := config.Env
+	if e.RespTecCNPJ == "" {
+		return nil
+	}
+	return &nfe.InfRespTec{CNPJ: e.RespTecCNPJ, XContato: e.RespTecContact, Email: e.RespTecEmail, Fone: e.RespTecPhone}
 }
 
 // ready responde se o serviço pode receber tráfego: o Postgres precisa responder.

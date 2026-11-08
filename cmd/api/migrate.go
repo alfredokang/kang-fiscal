@@ -29,6 +29,8 @@ var moduleMigrationPaths = []string{
 	"internal/modules/taxrule/infrastructure/persistence/postgres/migrations",
 	// numbering: `issuer_ref` é o emitente como texto opaco, sem FK (Art. 2).
 	"internal/modules/numbering/infrastructure/persistence/postgres/migrations",
+	// invoice por último: referencia emitente e reserva como texto opaco, sem FK (Art. 2).
+	"internal/modules/invoice/infrastructure/persistence/postgres/migrations",
 }
 
 var migrateModule string

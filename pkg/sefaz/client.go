@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -47,6 +48,9 @@ type Config struct {
 	HTTPClient *http.Client
 	// MaxResponseSize é o teto da resposta. O padrão é 8 MB.
 	MaxResponseSize int64
+	// RootCAs reaproveita uma cadeia já carregada (TrustPool). Montar a cadeia verifica
+	// 175 certificados; quem cria um cliente por nota deve carregá-la uma vez só.
+	RootCAs *x509.CertPool
 }
 
 // Client chama os web services.
@@ -75,9 +79,12 @@ func NewClient(cfg Config) (*Client, error) {
 	}
 	hc := cfg.HTTPClient
 	if hc == nil {
-		pool, err := TrustPool()
-		if err != nil {
-			return nil, err
+		pool := cfg.RootCAs
+		if pool == nil {
+			var err error
+			if pool, err = TrustPool(); err != nil {
+				return nil, err
+			}
 		}
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		tr.TLSClientConfig = &tls.Config{

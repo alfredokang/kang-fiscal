@@ -67,6 +67,29 @@ A resposta diz se o cadastro já pode emitir (`can_issue`) e, se não, **o que f
 nasce em **homologação**, e a passagem para produção é uma chamada separada:
 `POST /v1/admin/issuers/{id}/production`.
 
+### Emitir a primeira NF-e em homologação
+
+Com o emitente cadastrado (e completo), o certificado enviado e um perfil tributário:
+
+```bash
+curl -X POST localhost:8080/v1/nfe -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Idempotency-Key: pedido-1001" -d '{
+  "issuer_id": "<id do emitente>", "nature_of_operation": "VENDA DE MERCADORIA",
+  "recipient": { "cnpj": "99888777000166", "name": "CLIENTE LTDA", "ie_indicator": 9,
+    "address": { "street": "AV PAULISTA", "number": "1000", "district": "BELA VISTA",
+                 "city_code": "3550308", "city_name": "SAO PAULO", "uf": "SP", "zip_code": "01310100" } },
+  "items": [{ "code": "CAFE-500", "description": "CAFE TORRADO 500G", "ncm": "09012100",
+              "unit": "UN", "quantity": "3", "unit_price": "33.33", "tax_profile": "venda-sp" }],
+  "payments": [{ "method": "17", "amount": "99.99" }] }'
+```
+
+| Resposta | Significa |
+|---|---|
+| `201` `authorized` | Autorizada. O XML de distribuição está em `GET /v1/nfe/{chave}/xml` |
+| `422` `rejected` / `denied` | A SEFAZ recusou; `cstat`, `motive` e `hint` dizem o porquê e o que corrigir |
+| `202` `uncertain` | A SEFAZ não respondeu de forma conclusiva. Repita a MESMA chamada (mesma `Idempotency-Key`) ou consulte `GET /v1/nfe/{chave}?sync=sefaz` — a nota nunca sai duas vezes |
+| `502` `not_sent` | A SEFAZ recusou o certificado na conexão; nada foi processado |
+
 ### Testar o seu certificado A1
 
 ```bash
@@ -134,7 +157,9 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | `kang-fiscal sefaz-status` — testa o seu A1 contra a SEFAZ | ✅ |
 | `pkg/nfe` — leiaute 4.00 com os tributos atuais e IBS/CBS/IS na mesma nota, validado contra o XSD oficial | ✅ |
 | Motor tributário (`pkg/tax` + módulo `taxrule`): perfis, alíquotas por vigência e simulação de tributos no carrinho | ✅ |
-| Numeração e emissão pela API | 🔜 F1 |
+| Numeração sem buraco nem repetição | ✅ |
+| `POST /v1/nfe` — emissão da NF-e com idempotência e consulta pela chave quando a SEFAZ não responde | ✅ |
+| Cancelamento, carta de correção, DANFE, NFC-e | 🔜 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

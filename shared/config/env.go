@@ -34,6 +34,13 @@ type EnvConfig struct {
 	// aqui — a cópia do banco não pode levar a chave junto. Trocar a chave torna ilegíveis
 	// os certificados já gravados: é preciso enviá-los de novo.
 	SecretsEncryptionKey string `envconfig:"SECRETS_ENCRYPTION_KEY"`
+
+	// Responsável técnico (infRespTec): a empresa que mantém o sistema emissor. Várias UFs
+	// exigem; quem instala o Kang Fiscal para clientes informa os próprios dados.
+	RespTecCNPJ    string `envconfig:"RESP_TEC_CNPJ"`
+	RespTecContact string `envconfig:"RESP_TEC_CONTACT"`
+	RespTecEmail   string `envconfig:"RESP_TEC_EMAIL"`
+	RespTecPhone   string `envconfig:"RESP_TEC_PHONE"`
 }
 
 // Env é a configuração carregada no boot.
