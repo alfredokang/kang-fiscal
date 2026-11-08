@@ -296,6 +296,23 @@ func (f Fixed) Cmp(o Fixed) int {
 	return a.Cmp(b)
 }
 
+// MarshalText escreve o número no formato do XML. É o que o encoding/xml usa para o
+// conteúdo de um elemento.
+func (f Fixed) MarshalText() ([]byte, error) { return []byte(f.String()), nil }
+
+// UnmarshalText lê o número na escala que o texto traz.
+func (f *Fixed) UnmarshalText(b []byte) error {
+	v, err := ParseAuto(string(b))
+	if err != nil {
+		return err
+	}
+	*f = v
+	return nil
+}
+
+// Ptr devolve um ponteiro para o valor — os campos opcionais do leiaute são ponteiros.
+func (f Fixed) Ptr() *Fixed { return &f }
+
 // MarshalJSON escreve o número como string ("12.34").
 //
 // String, e não número JSON, porque o JavaScript de quem consome a API lê número como

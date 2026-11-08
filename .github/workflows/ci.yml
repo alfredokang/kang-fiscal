@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # xmllint valida todo XML gerado contra o XSD oficial da SEFAZ. Sem ele, os testes de
+      # leiaute são pulados — no CI isso não pode acontecer.
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+      - run: make check

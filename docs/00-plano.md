@@ -58,7 +58,7 @@ Biblioteca (`pkg/`):
 | `decimal` | Ponto fixo, escala do leiaute, arredondamento explícito | ✅ F0 |
 | `document` | CNPJ (inclusive alfanumérico) e CPF | ✅ F0 |
 | `accesskey` | Chave de 44 posições, cNF aleatório | ✅ F0 |
-| `nfe` | Structs do leiaute 4.00 com os grupos `IBSCBS`, `IS` e os totais | F1 |
+| `nfe` | Leiaute 4.00 (PL_010 v1.30): tributos atuais (ICMS 00/20/40/60/90, Simples 101/102/500/900, IPI, PIS, COFINS, DIFAL) **e** IBS/CBS/IS lado a lado; totais somados item a item; validado contra o XSD oficial | ✅ F1 |
 | `xmldsig` | Assinatura enveloped C14N 1.0 própria, inserida sem reserializar; conferida contra NF-e reais | ✅ F1 |
 | `certificate` | Leitura do A1 (`go-pkcs12`), CNPJ alfanumérico no otherName, nunca impresso em log | ✅ F1 |
 | `sefaz` | Cliente SOAP 1.2 com mTLS e cadeia ICP-Brasil verificada; status, autorização síncrona, consulta pela chave; 528 códigos de retorno com dica; URLs das 27 UFs em tabela | ✅ F1 |

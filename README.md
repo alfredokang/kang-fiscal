@@ -111,7 +111,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Módulo `certificate` — A1 cifrado por emitente | ✅ |
 | `pkg/sefaz` — cliente das 27 UFs com cadeia ICP-Brasil verificada e 528 códigos de retorno com dica | ✅ |
 | `kang-fiscal sefaz-status` — testa o seu A1 contra a SEFAZ | ✅ |
-| Motor tributário (IBS/CBS/IS), leiaute da NF-e, emissão | 🔜 F1 |
+| `pkg/nfe` — leiaute 4.00 com os tributos atuais e IBS/CBS/IS na mesma nota, validado contra o XSD oficial | ✅ |
+| Motor tributário, numeração e emissão pela API | 🔜 F1 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

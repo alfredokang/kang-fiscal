@@ -103,6 +103,17 @@ layout da NF-e, chave de acesso, documentos, decimal, assinatura, cliente da SEF
 - Dependência externa em `pkg/` precisa de justificativa escrita no PR. Hoje, a única
   aceita é a leitura de PKCS#12.
 
+### 3.2-A Nomes do leiaute
+
+As structs de `pkg/nfe` (e dos próximos leiautes) levam o nome do elemento do XML —
+`VProd`, `CClassTrib`, `PIBSUF` —, e não uma tradução para o inglês. É a única exceção à
+regra de identificadores em inglês: quem confere uma nota contra o Manual de Orientação do
+Contribuinte procura `vProd`, e um `ProductValue` obrigaria a uma tabela de tradução que
+ninguém mantém.
+
+E os testes validam todo XML gerado contra o **XSD oficial** (`pkg/nfe/testdata/schemas`).
+O CI instala o `xmllint` para que essa validação nunca seja pulada.
+
 ### 3.3 Três modelos, nunca um
 
 `entity.Issuer` ≠ `model.IssuerModel` ≠ `response.IssuerResponse`, com mapper entre eles.
