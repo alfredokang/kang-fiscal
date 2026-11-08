@@ -25,6 +25,8 @@ var moduleMigrationPaths = []string{
 	"internal/modules/issuer/infrastructure/persistence/postgres/migrations",
 	// certificate: `issuer_ref` é o id do emitente como texto opaco, sem FK (Art. 2).
 	"internal/modules/certificate/infrastructure/persistence/postgres/migrations",
+	// taxrule: perfis do tenant e alíquotas da reforma, que são lei e não têm tenant.
+	"internal/modules/taxrule/infrastructure/persistence/postgres/migrations",
 }
 
 var migrateModule string

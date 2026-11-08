@@ -29,7 +29,7 @@ func openIntegrationDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.Exec(`DELETE FROM issuer_issuers; DELETE FROM certificate_certificates`); err != nil {
+	if _, err := db.Exec(`DELETE FROM issuer_issuers; DELETE FROM certificate_certificates; DELETE FROM taxrule_profiles; DELETE FROM taxrule_rates WHERE valid_from >= '2027-01-01'`); err != nil {
 		t.Fatal(err)
 	}
 	return db

@@ -77,6 +77,27 @@ KANG_PFX_PASSWORD='senha-do-a1' docker run --rm -e KANG_PFX_PASSWORD -v $PWD/a1.
 
 A senha vai por variável de ambiente, e não por flag, para não ficar no histórico do shell.
 
+### Simular os tributos (o carrinho mostra o que vai para a nota)
+
+```bash
+curl -X PUT localhost:8080/v1/admin/tax-profiles/venda-sp -H "Authorization: Bearer $ADMIN_TOKEN" -d '{
+  "name": "Venda dentro de SP",
+  "rules": { "cfop_internal": "5102", "cfop_interstate": "6102",
+             "icms": {"code": "00", "rate": "18"},
+             "pis": {"cst": "01", "rate": "1.65"}, "cofins": {"cst": "01", "rate": "7.6"},
+             "ibs_cbs": {"cst": "000", "class_trib": "000001"},
+             "exclude_icms_from_pis_base": true } }'
+
+curl -X POST localhost:8080/v1/admin/tax/simulate -H "Authorization: Bearer $ADMIN_TOKEN" -d '{
+  "uf": "SP", "city_code": "3550308",
+  "items": [{ "profile": "venda-sp", "quantity": "3", "unit_price": "33.33" }] }'
+# totals: v_icms 18.00, v_pis 1.35, v_cofins 6.23, v_cbs 0.67, v_ibs 0.07, v_nf 99.99
+```
+
+As alíquotas de IBS e CBS ficam numa tabela por vigência (`/v1/admin/tax-rates`). Só as de
+2026 vêm cadastradas; para datas sem alíquota oficial, a simulação e a emissão respondem
+`TAX_RATE_MISSING` em vez de usar um número inventado.
+
 ## Usar como biblioteca Go
 
 ```go
@@ -112,7 +133,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | `pkg/sefaz` — cliente das 27 UFs com cadeia ICP-Brasil verificada e 528 códigos de retorno com dica | ✅ |
 | `kang-fiscal sefaz-status` — testa o seu A1 contra a SEFAZ | ✅ |
 | `pkg/nfe` — leiaute 4.00 com os tributos atuais e IBS/CBS/IS na mesma nota, validado contra o XSD oficial | ✅ |
-| Motor tributário, numeração e emissão pela API | 🔜 F1 |
+| Motor tributário (`pkg/tax` + módulo `taxrule`): perfis, alíquotas por vigência e simulação de tributos no carrinho | ✅ |
+| Numeração e emissão pela API | 🔜 F1 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

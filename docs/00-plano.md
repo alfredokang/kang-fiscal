@@ -43,7 +43,7 @@ webhook (`invoice.split_data`).
 | `credential` | Credenciais de API por tenant (HMAC com pepper, escopos), mostradas uma única vez | F1 |
 | `certificate` | A1 `.pfx` cifrado em repouso, raiz do CNPJ conferida, segredo do antigo apagado na troca, nunca devolvido | ✅ F1 |
 | `numbering` | Série e número com `FOR UPDATE`; inutilização automática de buraco | F1 |
-| `taxrule` | Motor tributário: CST/CSOSN, CFOP, ICMS/ST/DIFAL/FCP, PIS/COFINS e **IBS/CBS/IS** com `cClassTrib`; tabelas por vigência | F1 |
+| `taxrule` | Perfis tributários do tenant, alíquotas de IBS/CBS por vigência e local (só 2026 semeado; sem alíquota, a emissão para), `POST /v1/admin/tax/simulate` | ✅ F1 |
 | `invoice` | NF-e 55 e NFC-e 65: `draft → signed → sent → authorized \| rejected \| denied → canceled`, eventos (cancelamento, CC-e), XML imutável | F1/F2 |
 | `contingency` | Status por UF, SVC-AN/SVC-RS automático, EPEC, NFC-e offline | F3 |
 | `dfe` | DistribuiçãoDF-e por NSU, manifestação do destinatário | F4 |
@@ -62,6 +62,7 @@ Biblioteca (`pkg/`):
 | `xmldsig` | Assinatura enveloped C14N 1.0 própria, inserida sem reserializar; conferida contra NF-e reais | ✅ F1 |
 | `certificate` | Leitura do A1 (`go-pkcs12`), CNPJ alfanumérico no otherName, nunca impresso em log | ✅ F1 |
 | `sefaz` | Cliente SOAP 1.2 com mTLS e cadeia ICP-Brasil verificada; status, autorização síncrona, consulta pela chave; 528 códigos de retorno com dica; URLs das 27 UFs em tabela | ✅ F1 |
+| `tax` | Cálculo de ICMS, FCP, IPI, PIS, COFINS e IBS/CBS (com redução de alíquota), arredondando uma vez por valor | ✅ F1 |
 | `danfe` | DANFE e DANFCE em PDF, Go puro | F1/F2 |
 
 ## API (v1)

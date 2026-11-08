@@ -153,6 +153,6 @@ func TestNotaDoMotorPassaNoXSD(t *testing.T) {
 	n := &nfe.NFe{InfNFe: nfe.InfNFe{ID: id, Ide: ide, Emit: nfetest.Emit(3),
 		Dest: &nfe.Dest{CNPJ: "99888777000166", XNome: "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL", IndIEDest: 9},
 		Det:  items, Total: total, Transp: nfe.Transp{ModFrete: 9},
-		Pag:  nfe.Pag{DetPag: []nfe.DetPag{{TPag: "17", VPag: total.ICMSTot.VNF}}}}}
+		Pag: nfe.Pag{DetPag: []nfe.DetPag{{TPag: "17", VPag: total.ICMSTot.VNF}}}}}
 	nfetest.MustValidateXSD(t, nfetest.Sign(t, n))
 }
