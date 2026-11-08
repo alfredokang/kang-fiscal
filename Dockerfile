@@ -32,7 +32,7 @@ LABEL org.opencontainers.image.title="Kang Fiscal" \
       org.opencontainers.image.description="Emissor de NF-e, NFC-e e NFS-e open source, pronto para IBS, CBS e IS" \
       org.opencontainers.image.authors="Alfredo Kang" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.source="https://github.com/alfredokang/kang-fiscal"
+      org.opencontainers.image.url="https://hub.docker.com/r/alfredokang/kang-fiscal"
 
 WORKDIR /app
 COPY --from=builder /out/ /app/
