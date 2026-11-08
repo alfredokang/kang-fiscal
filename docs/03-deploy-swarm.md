@@ -1,5 +1,9 @@
 # Deploy no Docker Swarm com Portainer
 
+> Este guia é de **produção**. Em desenvolvimento, `make dev` sobe um Postgres pelo
+> `docker-compose.yml`; se você já tem um Postgres 18 rodando, crie nele o banco e o
+> usuário (o SQL da opção A abaixo), aponte o `.env` para ele e use `make local`.
+
 Três stacks, nesta ordem:
 
 | Stack no Portainer | Arquivo | O que roda |

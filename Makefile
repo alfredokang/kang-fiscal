@@ -7,7 +7,9 @@ setup: ## Copia .env.example para .env e baixa as dependências
 	@test -f .env || cp .env.example .env
 	go mod download
 
-dev: docker-up migrate run ## Sobe o Postgres, aplica as migrations e roda a API
+dev: docker-up migrate run ## Sobe o Postgres do compose, aplica as migrations e roda a API
+
+local: migrate run ## Usa o Postgres 18 que você já tem (POSTGRES_* do .env): migrations + API
 
 run: ## Roda a API local
 	go run . api
