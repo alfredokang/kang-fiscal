@@ -1,6 +1,6 @@
 # Kang Fiscal
 
-**Emissor gratuito de NF-e, NFC-e e NFS-e, pronto para a reforma tributária (IBS, CBS e IS) e para os tributos atuais.**
+**Emissor gratuito e open source de NF-e, NFC-e e NFS-e, pronto para a reforma tributária (IBS, CBS e IS) e para os tributos atuais.**
 
 Feito por **Alfredo Kang** para ajudar empresários e desenvolvedores do Brasil a acelerar
 seus projetos.
@@ -9,9 +9,7 @@ seus projetos.
 ![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8)
 ![Postgres 18](https://img.shields.io/badge/Postgres-18-336791)
 
-> **Distribuição:** este repositório é privado. O que é público e gratuito é a imagem
-> `alfredokang/kang-fiscal` no Docker Hub, cuja página é [docs/docker-hub.md](docs/docker-hub.md).
-> Emissão, cancelamento, contingência, recebimento e NFS-e estão prontos e testados contra
+> **Estado:** emissão, cancelamento, contingência, recebimento e NFS-e estão prontos e testados contra
 > SEFAZ e Sefin simuladas; falta a validação em homologação real. Veja o [plano](docs/00-plano.md).
 
 ---
@@ -32,11 +30,12 @@ seus projetos.
 
 ## Começando em 1 minuto
 
-Sem o código: siga [docs/docker-hub.md](docs/docker-hub.md), que só usa a imagem.
+Só com a imagem: siga [docs/docker-hub.md](docs/docker-hub.md).
 
-Com o código (desenvolvimento):
+Com o código:
 
 ```bash
+git clone https://github.com/alfredokang/kang-fiscal && cd kang-fiscal
 cp .env.example .env
 # defina ADMIN_TOKEN e SECRETS_ENCRYPTION_KEY no .env (openssl rand -base64 32)
 docker compose --profile full up -d

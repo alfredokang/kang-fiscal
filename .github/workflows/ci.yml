@@ -1,9 +1,11 @@
 name: CI
 
-# Só manual: o repositório é privado e o GitHub Actions cobra minutos em repositório
-# privado. A conferência de cada commit é o `make check` local. Se o código abrir, volte
-# para `push: { branches: [main] }` e `pull_request:`.
+# Repositório público: o GitHub Actions é gratuito. Se ele voltar a ser privado, os
+# minutos passam a ser cobrados — troque por `workflow_dispatch:` (só manual).
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:

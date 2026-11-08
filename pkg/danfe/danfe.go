@@ -409,7 +409,7 @@ func (r *renderer) additional(y float64) {
 	r.page.TextWrapped(margin+1, y+3, iw-2, strings.TrimSpace(b.String()), small, 9)
 	r.page.Rect(margin+iw, y, width-iw, 28, 0.2)
 	r.page.Text(margin+iw+0.8, y+0.6, "RESERVADO AO FISCO", label)
-	r.page.Text(margin, y+29, "Gerado por Kang Fiscal", pdf.Style{Size: 4.5, Gray: 0.4})
+	r.page.Text(margin, y+29, "Gerado por Kang Fiscal — github.com/alfredokang/kang-fiscal", pdf.Style{Size: 4.5, Gray: 0.4})
 }
 
 // stamp carimba homologação e cancelamento em diagonal leve, sem cobrir os dados.

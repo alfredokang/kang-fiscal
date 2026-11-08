@@ -1,6 +1,6 @@
 # Kang Fiscal
 
-**Emissor gratuito de NF-e, NFC-e e NFS-e, pronto para a reforma tributária (IBS, CBS e IS)
+**Emissor gratuito e open source de NF-e, NFC-e e NFS-e, pronto para a reforma tributária (IBS, CBS e IS)
 e para os tributos atuais.**
 
 Feito por **Alfredo Kang** para ajudar empresários e desenvolvedores do Brasil a acelerar
@@ -101,6 +101,7 @@ KANG_PFX_PASSWORD='senha-do-a1' docker run --rm -e KANG_PFX_PASSWORD \
   -v $PWD/a1.pfx:/a1.pfx:ro alfredokang/kang-fiscal sefaz-status --pfx /a1.pfx --uf SP
 ```
 
-## Licença
+## Código e licença
 
-Apache-2.0. Uso comercial liberado.
+Código em [github.com/alfredokang/kang-fiscal](https://github.com/alfredokang/kang-fiscal).
+Apache-2.0: uso comercial liberado.

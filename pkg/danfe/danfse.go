@@ -292,7 +292,7 @@ func (r *nfseRenderer) render() ([]byte, error) {
 	r.ibscbs()
 	r.totals()
 	r.additional()
-	pg.Text(margin+1, pdf.A4Height-margin-3, "Gerado por Kang Fiscal", pdf.Style{Size: 4.5, Gray: 0.4})
+	pg.Text(margin+1, pdf.A4Height-margin-3, "Gerado por Kang Fiscal — github.com/alfredokang/kang-fiscal", pdf.Style{Size: 4.5, Gray: 0.4})
 	if r.opts.Canceled {
 		pg.TextCenter(margin, width, 140, "CANCELADA", pdf.Style{Font: pdf.Bold, Size: 60, Gray: 0.8})
 	}
