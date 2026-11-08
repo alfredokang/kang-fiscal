@@ -26,6 +26,7 @@ import (
 // Deps são as portas da emissão.
 type Deps struct {
 	Repo     output.InvoiceRepository
+	Events   output.EventRepository
 	Issuers  output.IssuerReader
 	Signers  output.SignerProvider
 	Profiles output.TaxProfiles

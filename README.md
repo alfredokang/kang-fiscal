@@ -90,6 +90,23 @@ curl -X POST localhost:8080/v1/nfe -H "Authorization: Bearer $ADMIN_TOKEN" \
 | `202` `uncertain` | A SEFAZ não respondeu de forma conclusiva. Repita a MESMA chamada (mesma `Idempotency-Key`) ou consulte `GET /v1/nfe/{chave}?sync=sefaz` — a nota nunca sai duas vezes |
 | `502` `not_sent` | A SEFAZ recusou o certificado na conexão; nada foi processado |
 
+### Cancelar e corrigir
+
+```bash
+curl -X POST localhost:8080/v1/nfe/$CHAVE/cancel -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"justification": "Cliente desistiu da compra antes da entrega"}'
+
+# Cada carta de correção SUBSTITUI as anteriores: o texto traz todas as correções da nota.
+curl -X POST localhost:8080/v1/nfe/$CHAVE/correction -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"text": "Complemento do endereco do destinatario: SALA 2"}'
+
+curl localhost:8080/v1/nfe/$CHAVE/events -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Repetir um cancelamento é seguro: o registrado é devolvido como está, e o que ficou sem
+resposta é reenviado — se já tinha chegado, a SEFAZ responde duplicidade e ele conta como
+registrado.
+
 ### Testar o seu certificado A1
 
 ```bash
@@ -159,7 +176,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Motor tributário (`pkg/tax` + módulo `taxrule`): perfis, alíquotas por vigência e simulação de tributos no carrinho | ✅ |
 | Numeração sem buraco nem repetição | ✅ |
 | `POST /v1/nfe` — emissão da NF-e com idempotência e consulta pela chave quando a SEFAZ não responde | ✅ |
-| Cancelamento, carta de correção, DANFE, NFC-e | 🔜 |
+| Cancelamento e carta de correção (`POST /v1/nfe/{chave}/cancel` e `/correction`) | ✅ |
+| DANFE, NFC-e, inutilização automática, credenciais por tenant | 🔜 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

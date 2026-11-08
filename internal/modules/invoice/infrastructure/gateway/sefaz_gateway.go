@@ -52,3 +52,12 @@ func (g *SefazGateway) Query(ctx context.Context, cert *certificate.Certificate,
 	}
 	return c.Query(ctx, t, key)
 }
+
+// SendEvent envia um evento assinado.
+func (g *SefazGateway) SendEvent(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, batch int64, signed []byte) (sefaz.EventResult, error) {
+	c, err := g.client(cert)
+	if err != nil {
+		return sefaz.EventResult{}, err
+	}
+	return c.SendEvent(ctx, t, batch, signed)
+}

@@ -13,4 +13,8 @@ func RegisterRoutes(r chi.Router, h *handler.InvoiceHandler) {
 	r.Get("/nfe", h.List)
 	r.Get("/nfe/{key}", h.Get)
 	r.Get("/nfe/{key}/xml", h.XML)
+	r.Post("/nfe/{key}/cancel", h.Cancel)
+	r.Post("/nfe/{key}/correction", h.Correct)
+	r.Get("/nfe/{key}/events", h.Events)
+	r.Get("/nfe/events/{id}/xml", h.EventXML)
 }

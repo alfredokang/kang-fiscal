@@ -23,3 +23,18 @@ type Invoice struct {
 	CreatedAt    time.Time  `json:"created_at"`
 	AuthorizedAt *time.Time `json:"authorized_at,omitempty"`
 }
+
+// Event é um evento da nota.
+type Event struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"` // cancellation | correction
+	Code      string    `json:"code"` // 110111 | 110110
+	Seq       int       `json:"seq"`
+	Status    string    `json:"status"`
+	CStat     int       `json:"cstat,omitempty"`
+	Motive    string    `json:"motive,omitempty"`
+	Hint      string    `json:"hint,omitempty"`
+	Protocol  string    `json:"protocol,omitempty"`
+	Text      string    `json:"text"`
+	CreatedAt time.Time `json:"created_at"`
+}

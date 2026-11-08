@@ -51,6 +51,17 @@ type NumberReserver interface {
 type SefazGateway interface {
 	Authorize(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, batchID int64, signed []byte) (sefaz.AuthorizeResult, error)
 	Query(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, key string) (sefaz.QueryResult, error)
+	SendEvent(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, batchID int64, signed []byte) (sefaz.EventResult, error)
+}
+
+// EventRepository guarda os eventos das notas.
+type EventRepository interface {
+	CreateEvent(ctx context.Context, e *entity.Event) error
+	UpdateEvent(ctx context.Context, e *entity.Event) error
+	// Events lista os eventos da nota, em ordem; no máximo 40 (1 cancelamento + 20 CC-e e
+	// as tentativas rejeitadas).
+	Events(ctx context.Context, tenantID, accessKey string) ([]*entity.Event, error)
+	FindEvent(ctx context.Context, tenantID, id string) (*entity.Event, error)
 }
 
 // InvoiceRepository guarda as notas.

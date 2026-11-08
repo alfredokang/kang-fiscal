@@ -25,6 +25,9 @@ func NewModule(db *sql.DB, deps usecase.Deps) *Module {
 	if deps.Repo == nil {
 		deps.Repo = postgres.NewInvoiceRepository(db)
 	}
+	if deps.Events == nil {
+		deps.Events = postgres.NewEventRepository(db)
+	}
 	if deps.Sefaz == nil {
 		deps.Sefaz = gateway.NewSefazGateway()
 	}

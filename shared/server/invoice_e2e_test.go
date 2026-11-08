@@ -27,6 +27,25 @@ type fakeSefaz struct {
 	// authorize devolve o resultado; nil = autoriza com 100.
 	authorize func(key string) (sefaz.AuthorizeResult, error)
 	query     func(key string) (sefaz.QueryResult, error)
+	// event devolve o resultado do evento; nil = registra com 135.
+	event      func(signed []byte) (sefaz.EventResult, error)
+	eventCalls atomic.Int32
+}
+
+func (f *fakeSefaz) SendEvent(_ context.Context, _ *certificate.Certificate, _ sefaz.Target, _ int64, signed []byte) (sefaz.EventResult, error) {
+	f.eventCalls.Add(1)
+	if _, err := xmldsig.Verify(signed); err != nil {
+		return sefaz.EventResult{BatchCStat: 128, CStat: 297, Motive: "Rejeição: Assinatura difere do calculado"}, nil
+	}
+	if f.event != nil {
+		return f.event(signed)
+	}
+	return registered(), nil
+}
+
+func registered() sefaz.EventResult {
+	return sefaz.EventResult{BatchCStat: 128, CStat: 135, Motive: "Evento registrado e vinculado a NF-e", Protocol: "135260000000777",
+		RetEvento: []byte(`<retEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><infEvento><tpAmb>2</tpAmb><verAplic>FAKE</verAplic><cOrgao>35</cOrgao><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo><dhRegEvento>2026-11-08T11:00:00-03:00</dhRegEvento><nProt>135260000000777</nProt></infEvento></retEvento>`)}
 }
 
 func protocol(key string, cStat int, motive string) *sefaz.Protocol {

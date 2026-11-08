@@ -197,3 +197,21 @@ func TestRecusaNoHandshakeNaoEIncerta(t *testing.T) {
 		t.Errorf("recusa no handshake: %v", err)
 	}
 }
+
+func TestEventoRegistrado(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(body), `<envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><idLote>7</idLote><evento`) {
+			t.Errorf("lote: %s", body)
+		}
+		_, _ = io.WriteString(w, `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><nfeResultMsg><retEnvEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>7</idLote><tpAmb>2</tpAmb><cStat>128</cStat><xMotivo>Lote de Evento Processado</xMotivo><retEvento versao="1.00"><infEvento><tpAmb>2</tpAmb><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo><nProt>135260000000099</nProt><dhRegEvento>2026-11-08T11:00:01-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento></nfeResultMsg></soap:Body></soap:Envelope>`)
+	}))
+	defer srv.Close()
+	table, _ := sefaz.DefaultTable()
+	table.Override(sefaz.NFe, "SP", sefaz.Homologation, sefaz.ServiceEvent, sefaz.Endpoint{URL: srv.URL, Operation: "NFeRecepcaoEvento4", Method: "nfeRecepcaoEvento"})
+	c, _ := sefaz.NewClient(sefaz.Config{Table: table, HTTPClient: srv.Client()})
+	res, err := c.SendEvent(context.Background(), sp, 7, []byte(`<evento versao="1.00"></evento>`))
+	if err != nil || !res.Registered() || res.Protocol != "135260000000099" || !strings.HasPrefix(string(res.RetEvento), "<retEvento") {
+		t.Errorf("evento: %+v %v", res, err)
+	}
+}

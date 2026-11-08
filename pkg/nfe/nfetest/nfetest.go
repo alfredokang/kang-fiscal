@@ -84,6 +84,36 @@ func ValidateXSD(t testing.TB, doc []byte) ([]byte, error) {
 	return exec.Command(bin, "--noout", "--schema", SchemaPath(), f).CombinedOutput()
 }
 
+// MustValidateSchema valida contra outro schema do pacote (eventos: envEventoCancNFe_v1.00.xsd,
+// envCCe_v1.00.xsd).
+func MustValidateSchema(t testing.TB, doc []byte, schema string) {
+	t.Helper()
+	bin, err := exec.LookPath("xmllint")
+	if err != nil {
+		t.Skip("xmllint não instalado: a validação contra o XSD oficial ficou de fora")
+	}
+	f := filepath.Join(t.TempDir(), "doc.xml")
+	if err := os.WriteFile(f, doc, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(filepath.Dir(SchemaPath()), schema)
+	if out, err := exec.Command(bin, "--noout", "--schema", path, f).CombinedOutput(); err != nil {
+		t.Fatalf("o XML não passa em %s:\n%s\n%s", schema, out, doc)
+	}
+}
+
+// SignEvent assina o infEvento com o certificado de teste.
+func SignEvent(t testing.TB, doc []byte) []byte {
+	t.Helper()
+	pfx, _ := certificate.TestPFX("CAFE EXEMPLO LTDA", CNPJ, "s", time.Now().Add(time.Hour))
+	cert, _ := certificate.Load(pfx, "s")
+	out, err := xmldsig.Sign(doc, "infEvento", cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 // MustValidateXSD falha o teste se o XML não passa no schema.
 func MustValidateXSD(t testing.TB, doc []byte) {
 	t.Helper()

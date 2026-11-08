@@ -184,6 +184,10 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, err error) {
 		helpers.WriteError(w, http.StatusNotFound, err.Error(), "ISSUER_NOT_FOUND")
 	case errors.Is(err, domain.ErrIdempotencyConflict):
 		helpers.WriteError(w, http.StatusConflict, err.Error(), "IDEMPOTENCY_CONFLICT")
+	case errors.Is(err, domain.ErrAlreadyCanceled), errors.Is(err, domain.ErrTooManyCorrections):
+		helpers.WriteError(w, http.StatusConflict, err.Error(), "INVOICE_STATE")
+	case errors.Is(err, domain.ErrNotAuthorized):
+		helpers.WriteError(w, http.StatusUnprocessableEntity, err.Error(), "INVOICE_STATE")
 	case errors.Is(err, domain.ErrNotSupported):
 		helpers.WriteError(w, http.StatusUnprocessableEntity, err.Error(), "NOT_SUPPORTED")
 	case errors.Is(err, domain.ErrTaxRateMissing):

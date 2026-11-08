@@ -266,3 +266,13 @@ func timezoneOf(uf string) *time.Location {
 	}
 	return time.FixedZone("-03", -3*3600)
 }
+
+// TimezoneForUFCode é o fuso pelo código IBGE da UF (o cUF da chave de acesso).
+func TimezoneForUFCode(code int) *time.Location {
+	for uf, c := range ufCodes {
+		if c == code {
+			return timezoneOf(uf)
+		}
+	}
+	return timezoneOf("")
+}

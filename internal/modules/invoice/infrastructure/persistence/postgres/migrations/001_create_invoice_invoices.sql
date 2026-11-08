@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS invoice_invoices (
     environment     VARCHAR(16)  NOT NULL,
     access_key      VARCHAR(44)  NOT NULL,
     status          VARCHAR(12)  NOT NULL CHECK (status IN
-                        ('signed', 'authorized', 'denied', 'rejected', 'uncertain', 'not_sent')),
+                        ('signed', 'authorized', 'denied', 'rejected', 'uncertain', 'not_sent', 'canceled')),
     cstat           INTEGER      NOT NULL DEFAULT 0,
     motive          TEXT         NOT NULL DEFAULT '',
     protocol        VARCHAR(20)  NOT NULL DEFAULT '',
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS invoice_invoices_pending_idx ON invoice_invoices (upd
 CREATE OR REPLACE FUNCTION invoice_protect_authorized() RETURNS trigger AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
-        IF OLD.status IN ('authorized', 'denied') THEN
+        IF OLD.status IN ('authorized', 'denied', 'canceled') THEN
             RAISE EXCEPTION 'nota % (%) não pode ser apagada', OLD.access_key, OLD.status;
         END IF;
         RETURN OLD;
@@ -49,8 +49,10 @@ BEGIN
         NEW.access_key <> OLD.access_key OR NEW.protocol <> OLD.protocol OR NEW.signed_xml <> OLD.signed_xml) THEN
         RAISE EXCEPTION 'o XML autorizado da nota % é imutável', OLD.access_key;
     END IF;
-    IF OLD.status IN ('authorized', 'denied') AND NEW.status <> OLD.status THEN
-        RAISE EXCEPTION 'nota % já está %: o estado só muda por evento', OLD.access_key, OLD.status;
+    -- Autorizada só vira cancelada (pelo evento homologado); denegada e cancelada não mudam.
+    IF OLD.status IN ('authorized', 'denied', 'canceled') AND NEW.status <> OLD.status
+       AND NOT (OLD.status = 'authorized' AND NEW.status = 'canceled') THEN
+        RAISE EXCEPTION 'nota % está %: não pode passar a %', OLD.access_key, OLD.status, NEW.status;
     END IF;
     RETURN NEW;
 END;

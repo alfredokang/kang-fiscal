@@ -15,6 +15,9 @@ var (
 	ErrNoCertificate       = errors.New("o emitente não tem certificado A1 válido cadastrado")
 	ErrTaxProfileNotFound  = errors.New("perfil tributário não encontrado")
 	ErrTaxRateMissing      = errors.New("não há alíquota de IBS/CBS cadastrada para a data da emissão")
+	ErrNotAuthorized       = errors.New("só nota autorizada aceita cancelamento ou carta de correção")
+	ErrAlreadyCanceled     = errors.New("a nota já está cancelada")
+	ErrTooManyCorrections  = errors.New("a nota já tem 20 cartas de correção, o máximo permitido")
 	// ErrNotSent: a SEFAZ recusou a conexão (certificado) ou o servidor não é confiável.
 	// Nada foi processado; a nota pode ser emitida de novo com o mesmo pedido.
 	ErrNotSent = errors.New("a nota não chegou a ser processada pela SEFAZ")

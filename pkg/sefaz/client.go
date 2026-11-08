@@ -350,3 +350,65 @@ func (c *Client) Authorize(ctx context.Context, t Target, batchID int64, signedN
 var xmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;")
 
 func xmlEscape(s string) string { return xmlEscaper.Replace(s) }
+
+// EventResult é o retEnvEvento.
+type EventResult struct {
+	// BatchCStat é o do lote: 128 = processado (o resultado do evento está em CStat).
+	BatchCStat  int
+	BatchMotive string
+	// CStat do evento: 135 registrado e vinculado à nota, 136 registrado sem vínculo, 155
+	// cancelamento homologado fora do prazo; o resto é rejeição.
+	CStat        int
+	Motive       string
+	Protocol     string
+	RegisteredAt string
+	// RetEvento é o retEvento inteiro, como veio: entra no procEventoNFe.
+	RetEvento []byte
+	Raw       []byte
+}
+
+// Registered diz se o evento foi registrado.
+func (e EventResult) Registered() bool { return e.CStat == 135 || e.CStat == 136 || e.CStat == 155 }
+
+// SendEvent envia um evento já assinado (cancelamento, carta de correção).
+func (c *Client) SendEvent(ctx context.Context, t Target, batchID int64, signedEvento []byte) (EventResult, error) {
+	ep, err := c.table.Resolve(t.Model, t.UF, t.Environment, ServiceEvent, t.Contingency)
+	if err != nil {
+		return EventResult{}, err
+	}
+	doc := bytes.TrimSpace(signedEvento)
+	if i := bytes.Index(doc, []byte("?>")); bytes.HasPrefix(doc, []byte("<?xml")) && i > 0 {
+		doc = bytes.TrimSpace(doc[i+2:])
+	}
+	var body bytes.Buffer
+	body.WriteString(`<envEvento xmlns="` + nfeNamespace + `" versao="1.00"><idLote>` + strconv.FormatInt(batchID, 10) + `</idLote>`)
+	body.Write(doc)
+	body.WriteString(`</envEvento>`)
+	raw, err := c.call(ctx, ep, body.Bytes())
+	if err != nil {
+		return EventResult{}, err
+	}
+	var r struct {
+		CStat  int    `xml:"cStat"`
+		Motive string `xml:"xMotivo"`
+		Ret    *struct {
+			Inner []byte `xml:",innerxml"`
+			Info  struct {
+				CStat        int    `xml:"cStat"`
+				Motive       string `xml:"xMotivo"`
+				Protocol     string `xml:"nProt"`
+				RegisteredAt string `xml:"dhRegEvento"`
+			} `xml:"infEvento"`
+		} `xml:"retEvento"`
+	}
+	if err := xml.Unmarshal(raw, &r); err != nil {
+		return EventResult{}, fmt.Errorf("%w: retEnvEvento ilegível", ErrUncertain)
+	}
+	out := EventResult{BatchCStat: r.CStat, BatchMotive: r.Motive, Raw: raw}
+	if r.Ret != nil {
+		i := r.Ret.Info
+		out.CStat, out.Motive, out.Protocol, out.RegisteredAt = i.CStat, i.Motive, i.Protocol, i.RegisteredAt
+		out.RetEvento = []byte(`<retEvento xmlns="` + nfeNamespace + `" versao="1.00">` + string(r.Ret.Inner) + `</retEvento>`)
+	}
+	return out, nil
+}
