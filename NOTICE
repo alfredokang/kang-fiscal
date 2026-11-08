@@ -17,3 +17,5 @@ Inclui:
 - pkg/sefaz/icpbrasil.pem: certificados públicos da ICP-Brasil (ITI), na compilação CC0 de
   github.com/rffontenelle/CertificadosAC-ICP-Brasil.
 - pkg/xmldsig/testdata: documentos dos fixtures do sped-nfe (MIT).
+- pkg/nfse/testdata/schemas: schemas oficiais da DPS (SE/CGNFS-e), na cópia de
+  github.com/Gomes343/PyNFSeNacional (MIT).

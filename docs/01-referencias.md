@@ -39,6 +39,10 @@ Contei as ocorrências de `IBSCBS` no código de cada projeto.
 | [Gomes343/PyNFSeNacional](https://github.com/Gomes343/PyNFSeNacional) | MIT | DPS, mTLS, DANFSe local e cancelamento; feito por um contador, já emitiu em homologação |
 | [gildonei/nfse-nacional](https://github.com/gildonei/nfse-nacional) (PHP) | MIT | Segunda referência |
 
+Do PyNFSeNacional vieram os schemas da DPS (pacote NT 009, 20/10/2026) e a DPS assinada de
+referência: o `pkg/xmldsig` confere a assinatura dela — outro assinador (Python/lxml), outro
+namespace, a mesma canonicalização.
+
 ## Dependências
 
 | Biblioteca | Licença | Para quê |
