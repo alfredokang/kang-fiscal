@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"fmt"
 	"net"
 	"net/url"
 	"sync"
@@ -43,6 +44,9 @@ func GetConnection() (*sql.DB, error) {
 		if connErr = instance.Ping(); connErr != nil {
 			return
 		}
+		if connErr = RequireSupportedVersion(instance); connErr != nil {
+			return
+		}
 
 		// 20 abertas e 5 paradas por processo: no deploy com atualização sem parada sobem
 		// duas APIs e o migrate ao mesmo tempo, e o Postgres de um servidor pequeno vem com
@@ -54,6 +58,28 @@ func GetConnection() (*sql.DB, error) {
 	})
 
 	return instance, connErr
+}
+
+// SupportedMajor é a única versão do Postgres suportada (Constituição, Art. 4.6): a mesma
+// em desenvolvimento, nos testes e em produção. As migrations usam recursos dela, e um
+// banco de outra versão falharia no meio, com um erro que não aponta a causa.
+const SupportedMajor = 18
+
+// RequireSupportedVersion recusa, logo na conexão, um Postgres que não seja o 18.
+func RequireSupportedVersion(db *sql.DB) error {
+	var num int
+	if err := db.QueryRow(`SELECT current_setting('server_version_num')::int`).Scan(&num); err != nil {
+		return fmt.Errorf("ler a versão do Postgres: %w", err)
+	}
+	return CheckVersion(num)
+}
+
+// CheckVersion confere o server_version_num (180001 = 18.1).
+func CheckVersion(versionNum int) error {
+	if major := versionNum / 10000; major != SupportedMajor {
+		return fmt.Errorf("o Kang Fiscal só funciona com Postgres %d, e este banco é o Postgres %d", SupportedMajor, major)
+	}
+	return nil
 }
 
 // ConnectionString monta a URL de conexão com usuário e senha ESCAPADOS.

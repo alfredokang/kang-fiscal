@@ -8,7 +8,7 @@ seus projetos.
 
 - **Na sua máquina, de graça.** Sem mensalidade por nota, e o certificado A1 da sua empresa
   não sai do seu servidor (fica cifrado no seu Postgres).
-- **Leve.** Imagem de ~20 MB, sem shell; só precisa de Postgres.
+- **Leve.** Imagem de ~20 MB, sem shell; só precisa de Postgres 18 (a única versão suportada).
 - **NF-e, NFC-e e NFS-e Nacional** — emissão, cancelamento, carta de correção,
   inutilização, DANFE/DANFCE/DANFSe em PDF, contingência (SVC e NFC-e offline) e
   recebimento das notas de fornecedores com manifestação.

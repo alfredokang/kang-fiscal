@@ -135,8 +135,9 @@ resposta. Zero regra de negócio, zero SQL, zero cálculo de tributo.
 4. **Migrations por módulo**, numeradas, em
    `infrastructure/persistence/postgres/migrations/`, registradas em `cmd/api/migrate.go`.
 5. **Prefixo de tabela** com o nome do módulo: `issuer_issuers`, `invoice_invoices`.
-6. **Postgres 18** é a versão suportada — a mesma em desenvolvimento, teste e na imagem
-   de referência do `docker-compose.yml`.
+6. **Postgres 18** é a única versão suportada: a mesma em desenvolvimento, nos testes e na
+   imagem de referência do `docker-compose.yml`. A conexão recusa outra versão
+   (`shared/database/postgres.RequireSupportedVersion`).
 
 ---
 

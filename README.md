@@ -18,7 +18,7 @@ seus projetos.
 
 - **Auto-hospedado e gratuito.** Sem mensalidade por nota, sem mandar o certificado da sua
   empresa para o servidor de ninguém.
-- **Leve.** Uma imagem de ~20 MB, sem shell, e só o Postgres como dependência.
+- **Leve.** Uma imagem de ~20 MB, sem shell, e só o Postgres 18 como dependência.
 - **Pronto para a reforma.** IBS, CBS e Imposto Seletivo desde o primeiro dia, com as
   alíquotas em tabela versionada por vigência — porque elas ainda vão mudar.
 - **Uma API para qualquer linguagem**, numa imagem Docker, com a documentação navegável
@@ -59,7 +59,7 @@ Tudo vem de variáveis de ambiente (ou de um `.env` ao lado do binário). O
 
 | Variável | Para quê |
 |---|---|
-| `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | O banco: Postgres 18, a versão testada |
+| `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | O banco. **Só Postgres 18**: a API, o migrate e o worker recusam outra versão ao conectar |
 | `ADMIN_TOKEN` | Protege as rotas `/v1/admin`. **Vazio desliga essas rotas** (respondem 503) |
 | `SECRETS_ENCRYPTION_KEY` | 32 bytes em base64. Cifra (AES-256-GCM) a chave privada e a senha do certificado A1 no banco. Sem ela, o envio de certificado é recusado |
 

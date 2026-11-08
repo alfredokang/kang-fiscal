@@ -28,3 +28,11 @@ func TestSenhaComCaractereEspecialChegaInteira(t *testing.T) {
 		t.Errorf("fuso: esperava UTC, veio %q (%v)", tz, cfg.RuntimeParams)
 	}
 }
+
+func TestSoPostgres18(t *testing.T) {
+	for num, ok := range map[int]bool{180000: true, 180003: true, 170006: false, 160010: false, 190000: false} {
+		if err := postgres.CheckVersion(num); (err == nil) != ok {
+			t.Errorf("server_version_num %d: %v", num, err)
+		}
+	}
+}
