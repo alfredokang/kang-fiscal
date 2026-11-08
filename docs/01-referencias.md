@@ -43,7 +43,9 @@ Contei as ocorrências de `IBSCBS` no código de cada projeto.
 
 | Biblioteca | Licença | Para quê |
 |---|---|---|
-| [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12) | BSD-3 | Ler o `.pfx` A1. É a única dependência externa prevista em `pkg/` |
+| [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12) | BSD-3 | Ler o `.pfx` A1 |
+| [skip2/go-qrcode](https://github.com/skip2/go-qrcode) | MIT | Codificar o QR Code do DANFCE (correção de erro testada por milhares de projetos) |
+| [makiuchi-d/gozxing](https://github.com/makiuchi-d/gozxing) | Apache-2.0 | Só nos testes: ler de volta o QR Code, de forma independente do codificador |
 | [russellhaering/goxmldsig](https://github.com/russellhaering/goxmldsig) | Apache-2.0 | Alternativa de XMLDSig. A preferência é assinar sem reserializar, como o gonfe faz |
 
 ## Tabelas e cadeia de confiança

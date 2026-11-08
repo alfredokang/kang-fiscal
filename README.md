@@ -202,7 +202,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | DANFE em PDF (`GET /v1/nfe/{chave}/danfe`), sem dependência | ✅ |
 | Inutilização manual (`POST /v1/nfe/void-range`) e automática (`kang-fiscal worker`) | ✅ |
 | Credenciais por tenant (`kf_...`) com escopos e limite por minuto | ✅ |
-| NFC-e com QR Code, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
+| NFC-e (modelo 65) com QR Code v3 e DANFCE em bobina de 80 mm | ✅ |
+| Contingência (SVC e offline), DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

@@ -1,5 +1,9 @@
-// Package danfe gera o DANFE (Documento Auxiliar da NF-e) em PDF, sem dependência: só a
-// biblioteca padrão e as fontes base-14, que todo leitor de PDF já tem.
+// Package danfe gera o DANFE (NF-e, A4) e o DANFCE (NFC-e, bobina de 80 mm) em PDF, com as
+// fontes base-14 que todo leitor de PDF já tem.
+//
+// A única dependência é o codificador de QR Code do DANFCE (github.com/skip2/go-qrcode,
+// MIT): QR Code com correção de erro mal calculada sai ilegível no caixa, e é melhor usar
+// o que milhares de projetos já testaram (Constituição, Art. 3.2).
 //
 // O layout segue os blocos do Manual de Orientação do Contribuinte (Anexo II): canhoto,
 // cabeçalho com o código de barras da chave, protocolo, destinatário, cálculo do imposto,
@@ -85,6 +89,9 @@ func Generate(doc []byte, opts Options) ([]byte, error) {
 	}
 	for _, d := range src.Det {
 		r.icms = append(r.icms, d.ICMS)
+	}
+	if p.NFe.InfNFe.Ide.Mod == 65 {
+		return r.renderNFCe(p.NFe.InfNFeSupl)
 	}
 	return r.render()
 }

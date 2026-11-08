@@ -63,7 +63,7 @@ Biblioteca (`pkg/`):
 | `certificate` | Leitura do A1 (`go-pkcs12`), CNPJ alfanumérico no otherName, nunca impresso em log | ✅ F1 |
 | `sefaz` | Cliente SOAP 1.2 com mTLS e cadeia ICP-Brasil verificada; status, autorização síncrona, consulta pela chave; 528 códigos de retorno com dica; URLs das 27 UFs em tabela | ✅ F1 |
 | `tax` | Cálculo de ICMS, FCP, IPI, PIS, COFINS e IBS/CBS (com redução de alíquota), arredondando uma vez por valor | ✅ F1 |
-| `danfe` | DANFE em PDF sem dependência (gerador mínimo adaptado do gonfe, MIT): canhoto, código de barras Code 128C conferido por decodificação, quebra de página, IBS/CBS nos dados adicionais, carimbo de homologação e de cancelada; imprime nota de qualquer emissor | ✅ F1 |
+| `danfe` | DANFCE (bobina 80 mm) com QR Code (`skip2/go-qrcode`, MIT), lido de volta da imagem do PDF por decodificador independente; DANFE em PDF (gerador mínimo adaptado do gonfe, MIT): canhoto, código de barras Code 128C conferido por decodificação, quebra de página, IBS/CBS nos dados adicionais, carimbo de homologação e de cancelada; imprime nota de qualquer emissor | ✅ F1 |
 
 ## API (v1)
 
