@@ -14,6 +14,10 @@ import (
 const (
 	EventCancellation = "110111"
 	EventCorrection   = "110110"
+	// EventSubstitution é o cancelamento por substituição da NFC-e: cancela a nota online
+	// que ficou sem resposta e depois saiu autorizada, quando a venda já tinha sido coberta
+	// por uma NFC-e em contingência offline.
+	EventSubstitution = "110112"
 )
 
 // CorrectionTerms é o xCondUso da carta de correção. A SEFAZ compara caractere a caractere
@@ -60,6 +64,18 @@ type DetEvento struct {
 	XJust      string `xml:"xJust,omitempty"`
 	XCorrecao  string `xml:"xCorrecao,omitempty"`
 	XCondUso   string `xml:"xCondUso,omitempty"`
+}
+
+// substDet é o detEvento do 110112, que tem outra ordem de campos.
+type substDet struct {
+	Versao      string `xml:"versao,attr"`
+	DescEvento  string `xml:"descEvento"`
+	COrgaoAutor int    `xml:"cOrgaoAutor"`
+	TpAutor     int    `xml:"tpAutor"`
+	VerAplic    string `xml:"verAplic"`
+	NProt       string `xml:"nProt"`
+	XJust       string `xml:"xJust"`
+	ChNFeRef    string `xml:"chNFeRef"`
 }
 
 // EventParty é quem registra o evento sobre a nota.
@@ -128,3 +144,43 @@ func EventProc(signedEvento, retEvento []byte) []byte {
 
 // cleanText junta espaços: a SEFAZ rejeita espaço duplo e nas pontas.
 func cleanText(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// SubstitutionEvent é o evento de cancelamento por substituição (110112).
+type SubstitutionEvent struct {
+	XMLName   xml.Name `xml:"evento"`
+	Xmlns     string   `xml:"xmlns,attr"`
+	Versao    string   `xml:"versao,attr"`
+	InfEvento struct {
+		ID         string   `xml:"Id,attr"`
+		COrgao     int      `xml:"cOrgao"`
+		TpAmb      int      `xml:"tpAmb"`
+		CNPJ       string   `xml:"CNPJ,omitempty"`
+		ChNFe      string   `xml:"chNFe"`
+		DhEvento   string   `xml:"dhEvento"`
+		TpEvento   string   `xml:"tpEvento"`
+		NSeqEvento int      `xml:"nSeqEvento"`
+		VerEvento  string   `xml:"verEvento"`
+		DetEvento  substDet `xml:"detEvento"`
+	} `xml:"infEvento"`
+}
+
+// NewSubstitution monta o cancelamento por substituição: a nota de `p.Key` (com protocolo
+// `protocol`) é cancelada porque a venda foi coberta pela NFC-e `replacedBy`.
+func NewSubstitution(p EventParty, protocol, justification, replacedBy, verAplic string) (*SubstitutionEvent, error) {
+	j := cleanText(justification)
+	if n := utf8.RuneCountInString(j); n < 15 || n > 255 {
+		return nil, ErrJustification
+	}
+	e := &SubstitutionEvent{Xmlns: Namespace, Versao: "1.00"}
+	i := &e.InfEvento
+	i.ID = fmt.Sprintf("ID%s%s%02d", EventSubstitution, p.Key, 1)
+	i.COrgao, i.TpAmb, i.CNPJ, i.ChNFe = p.OrgCode, p.TpAmb, p.CNPJ, p.Key
+	i.DhEvento = p.When.Format("2006-01-02T15:04:05-07:00")
+	i.TpEvento, i.NSeqEvento, i.VerEvento = EventSubstitution, 1, "1.00"
+	i.DetEvento = substDet{Versao: "1.00", DescEvento: "Cancelamento por substituicao", COrgaoAutor: p.OrgCode,
+		TpAutor: 1, VerAplic: verAplic, NProt: protocol, XJust: j, ChNFeRef: replacedBy}
+	return e, nil
+}
+
+// MarshalSubstitution serializa o evento, pronto para assinar o infEvento.
+func MarshalSubstitution(e *SubstitutionEvent) ([]byte, error) { return xml.Marshal(e) }

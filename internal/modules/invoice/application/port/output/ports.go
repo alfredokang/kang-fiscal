@@ -92,6 +92,8 @@ type InvoiceRepository interface {
 	// UpdateDocument troca o XML assinado e a chave de uma nota que a SEFAZ recusou por
 	// estar parada (108/109) e vai sair pela SVC. O gatilho recusa em nota autorizada.
 	UpdateDocument(ctx context.Context, inv *entity.Invoice) error
+	// Pending lista as NFC-e offline e as notas online substituídas sem desfecho.
+	Pending(ctx context.Context, limit int) ([]*entity.Invoice, error)
 	// LatestIssuer devolve o emitente da nota mais recente da UF, modelo e ambiente — o
 	// certificado dele é o que o worker usa para testar se a SEFAZ voltou.
 	LatestIssuer(ctx context.Context, cUF string, model int, environment string) (tenantID, issuerRef string, err error)

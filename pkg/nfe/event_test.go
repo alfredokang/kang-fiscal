@@ -55,3 +55,14 @@ func TestEventoRecusa(t *testing.T) {
 		t.Errorf("correção longa: %v", err)
 	}
 }
+
+func TestCancelamentoPorSubstituicaoPassaNoXSD(t *testing.T) {
+	p := party
+	p.Key = "35261111222333000181650010000000071000000077"
+	ev, err := nfe.NewSubstitution(p, "135260000000001", "Venda coberta por NFC-e emitida em contingencia", "35261111222333000181650010000000089123456781", "kang-fiscal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := nfe.MarshalSubstitution(ev)
+	nfetest.MustValidateSchema(t, nfe.EventBatch(1, nfetest.SignEvent(t, raw)), "envEventoCancSubst_v1.00.xsd")
+}

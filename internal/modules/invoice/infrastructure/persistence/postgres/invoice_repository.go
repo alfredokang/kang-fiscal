@@ -16,7 +16,8 @@ import (
 
 const columns = `id, tenant_id, issuer_ref, idempotency_key, request_hash, model, series, number,
 	reservation_ref, environment, access_key, status, cstat, motive, protocol, total_amount::text,
-	signed_xml, authorized_xml, COALESCE(xml_hash, ''), created_at, updated_at, authorized_at`
+	signed_xml, authorized_xml, COALESCE(xml_hash, ''), created_at, updated_at, authorized_at,
+	COALESCE(superseded_by::text, '')`
 
 // InvoiceRepository é a implementação Postgres.
 type InvoiceRepository struct{ db *sql.DB }
@@ -46,9 +47,11 @@ func (r *InvoiceRepository) Update(ctx context.Context, i *entity.Invoice) error
 		hash = i.XMLHash
 	}
 	_, err := r.db.ExecContext(ctx, `UPDATE invoice_invoices SET status = $3, cstat = $4, motive = $5,
-		protocol = $6, authorized_xml = $7, xml_hash = $8, updated_at = $9, authorized_at = $10
+		protocol = $6, authorized_xml = $7, xml_hash = $8, updated_at = $9, authorized_at = $10,
+		superseded_by = NULLIF($11, '')::uuid
 		WHERE tenant_id = $1 AND id = $2`,
-		i.TenantID, i.ID, string(i.Status), i.CStat, i.Motive, i.Protocol, i.AuthorizedXML, hash, i.UpdatedAt, i.AuthorizedAt)
+		i.TenantID, i.ID, string(i.Status), i.CStat, i.Motive, i.Protocol, i.AuthorizedXML, hash, i.UpdatedAt, i.AuthorizedAt,
+		i.SupersededBy)
 	return err
 }
 
@@ -57,6 +60,27 @@ func (r *InvoiceRepository) UpdateDocument(ctx context.Context, i *entity.Invoic
 	_, err := r.db.ExecContext(ctx, `UPDATE invoice_invoices SET access_key = $3, signed_xml = $4, updated_at = $5
 		WHERE tenant_id = $1 AND id = $2 AND authorized_xml IS NULL`, i.TenantID, i.ID, i.AccessKey, i.SignedXML, i.UpdatedAt)
 	return err
+}
+
+// Pending lista as NFC-e offline a transmitir e as notas online substituídas ainda sem
+// desfecho, as mais antigas primeiro (a offline tem prazo para chegar à SEFAZ).
+func (r *InvoiceRepository) Pending(ctx context.Context, limit int) ([]*entity.Invoice, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+columns+` FROM invoice_invoices
+		WHERE status = 'offline' OR (superseded_by IS NOT NULL AND status IN ('signed', 'uncertain'))
+		ORDER BY created_at LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*entity.Invoice
+	for rows.Next() {
+		inv, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, inv)
+	}
+	return out, rows.Err()
 }
 
 // LatestIssuer devolve o emitente da nota mais recente da UF (pelo cUF da chave).
@@ -150,7 +174,7 @@ func scan(s scanner) (*entity.Invoice, error) {
 	var at sql.NullTime
 	if err := s.Scan(&i.ID, &i.TenantID, &i.IssuerRef, &i.IdempotencyKey, &i.RequestHash, &i.Model, &i.Series,
 		&i.Number, &i.ReservationRef, &i.Environment, &i.AccessKey, &status, &i.CStat, &i.Motive, &i.Protocol,
-		&i.TotalAmount, &i.SignedXML, &i.AuthorizedXML, &i.XMLHash, &i.CreatedAt, &i.UpdatedAt, &at); err != nil {
+		&i.TotalAmount, &i.SignedXML, &i.AuthorizedXML, &i.XMLHash, &i.CreatedAt, &i.UpdatedAt, &at, &i.SupersededBy); err != nil {
 		return nil, err
 	}
 	i.Status = entity.Status(status)

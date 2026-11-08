@@ -49,6 +49,9 @@ func (r *renderer) renderNFCe(supl *nfe.InfNFeSupl) ([]byte, error) {
 	center(fmt.Sprintf("%s, %s %s - %s - %s/%s", a.XLgr, a.Nro, a.XCpl, a.XBairro, a.XMun, a.UF), tiny)
 	rule()
 	center("DANFE NFC-e - Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica", bold)
+	if n.Ide.TpEmis == 9 {
+		center("EMITIDA EM CONTINGÊNCIA", bold)
+	}
 	if n.Ide.TpAmb == 2 {
 		center("EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL", bold)
 	}
@@ -115,6 +118,8 @@ func (r *renderer) renderNFCe(supl *nfe.InfNFeSupl) ([]byte, error) {
 	if r.protocol != "" {
 		center("Protocolo de autorização: "+r.protocol, text)
 		center("Data de autorização: "+dateTime(r.received), text)
+	} else if n.Ide.TpEmis == 9 {
+		center("Pendente de autorização", text)
 	} else {
 		center("NOTA NÃO AUTORIZADA", bold)
 	}

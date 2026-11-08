@@ -204,6 +204,11 @@ func (s *InvoiceService) send(ctx context.Context, inv *entity.Invoice, cert *ce
 		if uerr := s.d.Repo.Update(ctx, inv); uerr != nil {
 			return nil, uerr
 		}
+		if onlineNFCe(inv) && inv.SupersededBy == "" {
+			// A venda não espera a SEFAZ: sai agora uma NFC-e offline, e esta fica
+			// substituída (nunca reenviada — pode ter sido autorizada).
+			return s.goOffline(ctx, inv, cert, uf)
+		}
 		if normalEmission(inv) {
 			// A nota incerta NÃO vai para a SVC: ela pode ter sido autorizada pela UF, e a
 			// SVC daria outra chave à mesma venda. Só as próximas notas saem por lá.
@@ -282,6 +287,11 @@ func (s *InvoiceService) reconcile(ctx context.Context, inv *entity.Invoice, cer
 
 // resume continua uma nota já existente para a mesma Idempotency-Key.
 func (s *InvoiceService) resume(ctx context.Context, inv *entity.Invoice) (*entity.Invoice, error) {
+	if inv.SupersededBy != "" {
+		// A venda foi coberta pela NFC-e offline: é ela que responde. O destino desta é do
+		// worker (TransmitOffline), nunca de um reenvio.
+		return s.d.Repo.FindByID(ctx, inv.TenantID, inv.SupersededBy)
+	}
 	if inv.Status != entity.StatusUncertain && inv.Status != entity.StatusSigned {
 		return inv, nil
 	}

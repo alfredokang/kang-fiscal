@@ -141,6 +141,11 @@ func (s *InvoiceService) createAndSend(ctx context.Context, inv *entity.Invoice,
 	if err != nil {
 		return nil, err
 	}
+	return s.createAndSendRaw(ctx, inv, raw, ev.InfEvento.TpEvento, seq, text, cert)
+}
+
+// createAndSendRaw assina, grava e envia um evento já serializado.
+func (s *InvoiceService) createAndSendRaw(ctx context.Context, inv *entity.Invoice, raw []byte, tpEvento string, seq int, text string, cert *certificate.Certificate) (*entity.Event, error) {
 	signed, err := xmldsig.Sign(raw, "infEvento", cert)
 	if err != nil {
 		return nil, err
@@ -151,7 +156,7 @@ func (s *InvoiceService) createAndSend(ctx context.Context, inv *entity.Invoice,
 	}
 	now := s.d.Now()
 	e := &entity.Event{ID: id.String(), TenantID: inv.TenantID, InvoiceID: inv.ID, AccessKey: inv.AccessKey,
-		Type: ev.InfEvento.TpEvento, Seq: seq, Status: entity.EventSigned, Text: text, SignedXML: signed,
+		Type: tpEvento, Seq: seq, Status: entity.EventSigned, Text: text, SignedXML: signed,
 		CreatedAt: now, UpdatedAt: now}
 	if err := s.d.Events.CreateEvent(ctx, e); err != nil {
 		return nil, err
@@ -195,7 +200,8 @@ func (s *InvoiceService) sendEventWith(ctx context.Context, inv *entity.Invoice,
 	if err := s.d.Events.UpdateEvent(ctx, e); err != nil {
 		return nil, err
 	}
-	if e.Status == entity.EventRegistered && e.Type == nfe.EventCancellation && inv.Status == entity.StatusAuthorized {
+	cancels := e.Type == nfe.EventCancellation || e.Type == nfe.EventSubstitution
+	if e.Status == entity.EventRegistered && cancels && inv.Status == entity.StatusAuthorized {
 		inv.Cancel(now)
 		if err := s.d.Repo.Update(ctx, inv); err != nil {
 			return nil, err

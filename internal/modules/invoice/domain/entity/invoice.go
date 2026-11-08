@@ -24,6 +24,9 @@ const (
 	StatusRejected   Status = "rejected"
 	StatusUncertain  Status = "uncertain"
 	StatusNotSent    Status = "not_sent"
+	// StatusOffline: NFC-e emitida em contingência offline (tpEmis 9), já entregue ao
+	// consumidor e pendente de transmissão à SEFAZ.
+	StatusOffline Status = "offline"
 )
 
 // Final diz se o estado não muda mais por envio.
@@ -53,6 +56,8 @@ type Invoice struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	AuthorizedAt   *time.Time
+	// SupersededBy é a NFC-e offline que cobriu a venda desta nota online sem resposta.
+	SupersededBy string
 }
 
 // HashRequest é a impressão digital do pedido, para a idempotência: a mesma chave com outro

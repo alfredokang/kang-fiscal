@@ -63,6 +63,8 @@ func (h *InvoiceHandler) Issue(w http.ResponseWriter, r *http.Request) {
 	case entity.StatusNotSent:
 		status = http.StatusBadGateway
 	}
+	// offline: 201 — a NFC-e em contingência vale para entregar ao consumidor agora; a
+	// transmissão é do worker.
 	helpers.WriteJSON(w, status, toResponse(inv))
 }
 

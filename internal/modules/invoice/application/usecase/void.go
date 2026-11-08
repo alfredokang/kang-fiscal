@@ -93,6 +93,14 @@ func (s *InvoiceService) SweepPending(ctx context.Context, age time.Duration, li
 			res.Errors = append(res.Errors, err.Error())
 			continue
 		default:
+			if inv.SupersededBy != "" && (inv.Status == entity.StatusSigned || inv.Status == entity.StatusUncertain) {
+				res.Skipped++ // substituída por NFC-e offline: o destino é do TransmitOffline
+				continue
+			}
+			if inv.Status == entity.StatusOffline {
+				res.Skipped++ // o número é da NFC-e offline, a transmitir
+				continue
+			}
 			if inv.Status == entity.StatusSigned || inv.Status == entity.StatusUncertain {
 				if inv, err = s.resume(ctx, inv); err != nil {
 					res.Errors = append(res.Errors, err.Error())

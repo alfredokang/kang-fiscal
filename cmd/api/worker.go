@@ -55,6 +55,12 @@ var Worker = &cobra.Command{
 			if restored := srv.Invoices().ProbeContingencies(ctx); len(restored) > 0 {
 				logger.SugaredLogger.Infow("contingência encerrada: autorizadora de volta", "ufs", restored)
 			}
+			// As NFC-e offline têm prazo (24 horas) e vêm antes da varredura: o desfecho das
+			// online substituídas libera os números que ela inutiliza.
+			if off := srv.Invoices().TransmitOffline(ctx, 200); off.Transmitted > 0 || len(off.Errors) > 0 || off.Released > 0 {
+				logger.SugaredLogger.Infow("NFC-e offline", "transmitidas", off.Transmitted, "autorizadas", off.Authorized,
+					"substituídas", off.Substituted, "liberadas", off.Released, "erros", off.Errors)
+			}
 			res := srv.Invoices().SweepPending(ctx, age, 500)
 			if res.Checked > 0 || len(res.Errors) > 0 {
 				logger.SugaredLogger.Infow("varredura de inutilização", "conferidos", res.Checked,

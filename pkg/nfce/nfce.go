@@ -8,9 +8,15 @@
 package nfce
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/sha1" //nolint:gosec
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -75,4 +81,61 @@ func Supplement(uf, accessKey string, tpAmb int) (*nfe.InfNFeSupl, error) {
 		return nil, err
 	}
 	return &nfe.InfNFeSupl{QRCode: QRCodeV3(qr, accessKey, tpAmb), URLChave: chave}, nil
+}
+
+// Signer assina com o certificado do emitente (RSA PKCS#1 v1.5). *certificate.Certificate
+// implementa.
+type Signer interface {
+	Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error)
+}
+
+// Offline é o que entra no QR Code da NFC-e emitida em contingência offline (tpEmis 9).
+type Offline struct {
+	AccessKey string
+	TpAmb     int
+	Day       int    // dia da emissão (dhEmi), de 1 a 31
+	VNF       string // valor total com 2 casas, como no XML ("19.50")
+	// Destinatário: CNPJ (1), CPF (2) ou nenhum. Estrangeiro e não identificado vão vazios.
+	CNPJ, CPF string
+}
+
+// QRCodeV3Offline monta URL?p=chave|3|tpAmb|dia|vNF|tp_idDest|idDest|assinatura.
+//
+// A assinatura é RSA com SHA-1 (PKCS#1 v1.5), em Base64, sobre os sete primeiros
+// parâmetros com os separadores — com o mesmo certificado que assina a NFC-e (NT 2025.001
+// e Manual de Padrões Técnicos do DANFE NFC-e 6.00; conferido contra a implementação do
+// sped-nfe, que usa openssl_sign com SHA-1). Sem o CSC: é a assinatura que prova que o QR
+// Code impresso na contingência é do emitente.
+func QRCodeV3Offline(baseURL string, o Offline, signer Signer) (string, error) {
+	tpID, id := "", ""
+	switch {
+	case o.CNPJ != "":
+		tpID, id = "1", o.CNPJ
+	case o.CPF != "":
+		tpID, id = "2", o.CPF
+	}
+	params := fmt.Sprintf("%s|3|%d|%02d|%s|%s|%s", o.AccessKey, o.TpAmb, o.Day, o.VNF, tpID, id)
+	sum := sha1.Sum([]byte(params)) //nolint:gosec // SHA-1 é o que a NT exige
+	sig, err := signer.Sign(rand.Reader, sum[:], crypto.SHA1)
+	if err != nil {
+		return "", fmt.Errorf("nfce: assinatura do QR Code: %w", err)
+	}
+	sep := "?"
+	if strings.Contains(baseURL, "?") {
+		sep = "&"
+	}
+	return baseURL + sep + "p=" + params + "|" + base64.StdEncoding.EncodeToString(sig), nil
+}
+
+// SupplementOffline monta o infNFeSupl de uma NFC-e emitida em contingência offline.
+func SupplementOffline(uf string, o Offline, signer Signer) (*nfe.InfNFeSupl, error) {
+	qr, chave, err := URLs(uf, o.TpAmb)
+	if err != nil {
+		return nil, err
+	}
+	code, err := QRCodeV3Offline(qr, o, signer)
+	if err != nil {
+		return nil, err
+	}
+	return &nfe.InfNFeSupl{QRCode: code, URLChave: chave}, nil
 }
