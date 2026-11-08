@@ -1,9 +1,10 @@
 name: CI
 
+# Só manual: o repositório é privado e o GitHub Actions cobra minutos em repositório
+# privado. A conferência de cada commit é o `make check` local. Se o código abrir, volte
+# para `push: { branches: [main] }` e `pull_request:`.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
