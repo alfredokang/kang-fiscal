@@ -180,3 +180,47 @@ func TestDocsServidas(t *testing.T) {
 		}
 	}
 }
+
+// TestOpenAPISchemasSoComPalavrasChave pega o erro clássico do YAML inline: dentro de
+// { ... }, uma vírgula numa descrição sem aspas abre um campo novo. O YAML continua válido
+// (o Unmarshal aceita), mas o schema ganha uma "palavra-chave" inventada, que o Redocly e
+// os geradores de SDK recusam.
+func TestOpenAPISchemasSoComPalavrasChave(t *testing.T) {
+	allowed := map[string]bool{}
+	for _, k := range strings.Fields(`type format description enum default example examples pattern minimum maximum
+		minLength maxLength minItems maxItems items properties required allOf oneOf anyOf $ref additionalProperties
+		contentEncoding nullable readOnly writeOnly deprecated title const`) {
+		allowed[k] = true
+	}
+	var spec any
+	if err := yaml.Unmarshal(openapi.Spec, &spec); err != nil {
+		t.Fatal(err)
+	}
+	var walk func(n any, path string, inProperties bool)
+	walk = func(n any, path string, inProperties bool) {
+		switch v := n.(type) {
+		case map[string]any:
+			// Um schema é um mapa com "type" (fora de "properties", onde as chaves são
+			// nomes de campo, e um campo pode se chamar "type").
+			if _, isSchema := v["type"]; isSchema && !inProperties {
+				if _, isParam := v["in"]; !isParam {
+					if _, isSec := v["scheme"]; !isSec {
+						for k := range v {
+							if !allowed[k] {
+								t.Errorf("%s: %q não é palavra-chave de schema — vírgula sem aspas numa descrição?", path, k)
+							}
+						}
+					}
+				}
+			}
+			for k, c := range v {
+				walk(c, path+"/"+k, k == "properties" && !inProperties)
+			}
+		case []any:
+			for _, c := range v {
+				walk(c, path, false)
+			}
+		}
+	}
+	walk(spec, "", false)
+}

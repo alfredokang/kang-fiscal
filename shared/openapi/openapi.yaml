@@ -44,13 +44,21 @@ security:
 
 tags:
   - name: Saúde
+    description: Liveness, readiness e métricas. Sem autenticação.
   - name: Credenciais
+    description: Tokens por tenant (kf_...) com escopos — para quem atende vários CNPJs.
   - name: Emitentes
+    description: A empresa que emite, o certificado A1 e a numeração.
   - name: Tributos
+    description: Perfis tributários, alíquotas de IBS/CBS por vigência e simulação do carrinho.
   - name: NF-e e NFC-e
+    description: Emissão, consulta, cancelamento, carta de correção, inutilização e DANFE.
   - name: Contingência
+    description: SVC da NF-e quando a SEFAZ da UF para. A NFC-e usa a emissão offline, automática.
   - name: NFS-e
+    description: NFS-e no padrão nacional (Sefin), com cancelamento e DANFSe.
   - name: Recebimento
+    description: Notas emitidas contra o seu CNPJ e a manifestação do destinatário.
 
 paths:
   /health:
@@ -1289,7 +1297,7 @@ components:
           type: object
           required: [national_code, description]
           properties:
-            national_code: { type: string, description: cTribNac, 6 dígitos (LC 116), example: "010701" }
+            national_code: { type: string, description: "cTribNac: 6 dígitos (LC 116)", example: "010701" }
             municipal_code: { type: string }
             nbs: { type: string }
             description: { type: string }
@@ -1299,8 +1307,8 @@ components:
         iss:
           type: object
           properties:
-            taxation: { type: integer, enum: [1, 2, 3, 4], default: 1, description: 1 tributável, 2 imunidade, 3 exportação, 4 não incidência }
-            retention: { type: integer, enum: [1, 2, 3], default: 1, description: 1 não retido, 2 pelo tomador, 3 pelo intermediário }
+            taxation: { type: integer, enum: [1, 2, 3, 4], default: 1, description: "1 tributável, 2 imunidade, 3 exportação, 4 não incidência" }
+            retention: { type: integer, enum: [1, 2, 3], default: 1, description: "1 não retido, 2 pelo tomador, 3 pelo intermediário" }
             rate: { $ref: "#/components/schemas/Decimal" }
         pis_cofins_cst: { type: string }
         simples_tax_percent:
