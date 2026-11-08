@@ -129,6 +129,27 @@ Repetir um cancelamento é seguro: o registrado é devolvido como está, e o que
 resposta é reenviado — se já tinha chegado, a SEFAZ responde duplicidade e ele conta como
 registrado.
 
+### Emitir uma NFS-e (padrão nacional)
+
+A nota de serviço vai direto para o Sistema Nacional da NFS-e (Sefin), sem prefeitura no
+meio. Cadastre a `municipal_registration` do emitente e envie a DPS:
+
+```bash
+curl -X POST localhost:8080/v1/nfse -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Idempotency-Key: os-2026-0042" -d '{
+  "issuer_id": "'$EMITENTE'", "series": 1,
+  "service": {"national_code": "010701", "description": "Suporte técnico em informática"},
+  "amount": "1500.00",
+  "iss": {"taxation": 1, "retention": 1, "rate": "2"},
+  "recipient": {"cnpj": "99888777000166", "name": "CLIENTE LTDA", "city_code": "3550308"},
+  "ibs_cbs": {"cst": "000", "class_trib": "000001", "operation_code": "100301"}
+}'
+```
+
+O Sistema Nacional calcula IBS e CBS e devolve a NFS-e. Se a resposta se perder, o Kang
+Fiscal consulta a DPS pelo Id antes de pensar em reenviar: o mesmo serviço nunca vira duas
+notas. `GET /v1/nfse/{chave}/xml` baixa a NFS-e.
+
 ### Testar o seu certificado A1
 
 ```bash
@@ -206,8 +227,9 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | Contingência SVC automática da NF-e (e a nota incerta nunca vira duas) | ✅ |
 | NFC-e offline: o caixa não para quando a SEFAZ cai, e a venda nunca vira duas notas | ✅ |
 | Recebimento de notas de fornecedores e manifestação do destinatário (`/v1/dfe/...`) | ✅ |
-| NFS-e Nacional | 🔜 F5 |
-| NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
+| NFS-e no padrão nacional (`POST /v1/nfse`), com IBS/CBS, sem duplicar nota em timeout | ✅ |
+| Cancelamento da NFS-e e DANFSe | 🔜 |
+| SDKs (TS, PHP, Python) e OpenAPI | 🔜 F6 |
 
 ## Arquitetura
 

@@ -24,7 +24,8 @@ func (k SeriesKey) Validate() error {
 	if k.TenantID == "" || k.IssuerRef == "" {
 		return domain.ErrRequiredField
 	}
-	if k.Model != 55 && k.Model != 65 {
+	// 99 é a DPS da NFS-e Nacional (numeração do prestador, sem inutilização).
+	if k.Model != 55 && k.Model != 65 && k.Model != 99 {
 		return domain.ErrInvalidModel
 	}
 	// 890 a 899 são reservadas para a nota avulsa emitida pelo fisco.

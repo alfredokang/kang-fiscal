@@ -31,7 +31,7 @@ func openIntegrationDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.Exec(`TRUNCATE credential_keys, dfe_cursors, dfe_documents, issuer_issuers, certificate_certificates, taxrule_profiles, numbering_reservations, numbering_series, invoice_events, invoice_voids, invoice_invoices, invoice_contingency; DELETE FROM taxrule_rates WHERE valid_from >= '2027-01-01'`); err != nil {
+	if _, err := db.Exec(`TRUNCATE nfse_documents, credential_keys, dfe_cursors, dfe_documents, issuer_issuers, certificate_certificates, taxrule_profiles, numbering_reservations, numbering_series, invoice_events, invoice_voids, invoice_invoices, invoice_contingency; DELETE FROM taxrule_rates WHERE valid_from >= '2027-01-01'`); err != nil {
 		t.Fatal(err)
 	}
 	return db

@@ -25,6 +25,8 @@ import (
 	invoiceout "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/port/output"
 	invoiceusecase "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/usecase"
 	"github.com/alfredokang/kang-fiscal/internal/modules/issuer"
+	"github.com/alfredokang/kang-fiscal/internal/modules/nfse"
+	nfseout "github.com/alfredokang/kang-fiscal/internal/modules/nfse/application/port/output"
 	"github.com/alfredokang/kang-fiscal/internal/modules/numbering"
 	"github.com/alfredokang/kang-fiscal/internal/modules/taxrule"
 	"github.com/alfredokang/kang-fiscal/pkg/nfe"
@@ -37,13 +39,14 @@ import (
 
 // Server é a API HTTP.
 type Server struct {
-	invoices   *invoiceusecase.InvoiceService
-	dfe        *dfeusecase.DFeService
-	dfeGateway dfeout.Gateway
-	db         *sql.DB
-	box        *secretbox.Box
-	sefaz      invoiceout.SefazGateway
-	router     chi.Router
+	invoices    *invoiceusecase.InvoiceService
+	dfe         *dfeusecase.DFeService
+	dfeGateway  dfeout.Gateway
+	nfseGateway nfseout.Gateway
+	db          *sql.DB
+	box         *secretbox.Box
+	sefaz       invoiceout.SefazGateway
+	router      chi.Router
 }
 
 // Option ajusta o servidor (testes trocam a SEFAZ por uma falsa).
@@ -51,6 +54,9 @@ type Option func(*Server)
 
 // WithDFeGateway troca o gateway do Ambiente Nacional (testes).
 func WithDFeGateway(g dfeout.Gateway) Option { return func(s *Server) { s.dfeGateway = g } }
+
+// WithNFSeGateway troca o gateway da Sefin Nacional (testes).
+func WithNFSeGateway(g nfseout.Gateway) Option { return func(s *Server) { s.nfseGateway = g } }
 
 // DFe devolve o serviço de recebimento (o worker sincroniza).
 func (s *Server) DFe() *dfeusecase.DFeService { return s.dfe }
@@ -112,6 +118,8 @@ func (s *Server) routes() chi.Router {
 	dfeModule := dfe.NewModule(s.db, dfeAdapter{issuers: issuerModule.IssuerService, certs: certificateModule.CertificateService},
 		dfeAdapter{issuers: issuerModule.IssuerService, certs: certificateModule.CertificateService}, s.dfeGateway)
 	s.dfe = dfeModule.Service
+	nfseDeps := nfseAdapter{issuers: issuerModule.IssuerService, certs: certificateModule.CertificateService, numbers: numberingModule.Service}
+	nfseModule := nfse.NewModule(s.db, nfseDeps, nfseDeps, nfseDeps, s.nfseGateway)
 
 	r.Route("/v1", func(v1 chi.Router) {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que
@@ -141,6 +149,7 @@ func (s *Server) routes() chi.Router {
 			numberingModule.RegisterRoutes(api)
 			invoiceModule.RegisterRoutes(api)
 			dfeModule.RegisterRoutes(api)
+			nfseModule.RegisterRoutes(api)
 		})
 	})
 	return r

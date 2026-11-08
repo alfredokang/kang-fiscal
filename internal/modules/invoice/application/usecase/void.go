@@ -84,6 +84,9 @@ func (s *InvoiceService) SweepPending(ctx context.Context, age time.Duration, li
 	}
 	groups := map[string]*group{}
 	for _, p := range pending {
+		if p.Key.Model == 99 {
+			continue // DPS da NFS-e: não existe inutilização; o módulo nfse fecha a reserva
+		}
 		res.Checked++
 		inv, err := s.d.Repo.FindByID(ctx, p.Key.TenantID, p.DocumentRef)
 		switch {

@@ -16,7 +16,7 @@ func scopeFor(r *http.Request) string {
 	path := strings.TrimPrefix(r.URL.Path, "/v1")
 	read := r.Method == http.MethodGet
 	switch {
-	case strings.HasPrefix(path, "/nfe"), strings.HasPrefix(path, "/dfe"):
+	case strings.HasPrefix(path, "/nfe"), strings.HasPrefix(path, "/nfse"), strings.HasPrefix(path, "/dfe"):
 		if read {
 			return "nfe:read"
 		}
