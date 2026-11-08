@@ -170,6 +170,15 @@ func TestEmissaoAutorizada(t *testing.T) {
 	}
 	nfetest.MustValidateXSD(t, signed)
 
+	// O DANFE sai em PDF, com o código de barras da chave.
+	drec := httptest.NewRecorder()
+	dreq := httptest.NewRequest(http.MethodGet, "/v1/nfe/"+key+"/danfe", nil)
+	dreq.Header.Set("Authorization", "Bearer "+adminToken)
+	h.ServeHTTP(drec, dreq)
+	if drec.Code != http.StatusOK || drec.Header().Get("Content-Type") != "application/pdf" || !strings.HasPrefix(drec.Body.String(), "%PDF-1.4") {
+		t.Errorf("DANFE: %d %s", drec.Code, drec.Header().Get("Content-Type"))
+	}
+
 	// A mesma Idempotency-Key devolve a mesma nota, sem enviar de novo.
 	rec2, again := issue(t, h, "pedido-1001", issueBody(issuerID, "09012100"))
 	if rec2.Code != http.StatusCreated || again["access_key"] != key || f.authorizeCalls.Load() != 1 {

@@ -17,6 +17,7 @@ import (
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain"
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain/entity"
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain/service"
+	"github.com/alfredokang/kang-fiscal/pkg/danfe"
 	"github.com/alfredokang/kang-fiscal/pkg/sefaz"
 	"github.com/alfredokang/kang-fiscal/pkg/tax"
 	"github.com/alfredokang/kang-fiscal/shared/helpers"
@@ -91,6 +92,29 @@ func (h *InvoiceHandler) XML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 	_, _ = w.Write(doc)
+}
+
+// DANFE atende GET /v1/nfe/{key}/danfe: o PDF que acompanha a mercadoria. Nota cancelada
+// sai carimbada; nota ainda não autorizada sai com "NÃO AUTORIZADA".
+func (h *InvoiceHandler) DANFE(w http.ResponseWriter, r *http.Request) {
+	tenant, _ := middleware.TenantIDFrom(r.Context())
+	inv, err := h.svc.Get(r.Context(), tenant, chi.URLParam(r, "key"), false)
+	if err != nil {
+		writeDomainError(w, r, err)
+		return
+	}
+	doc := inv.SignedXML
+	if len(inv.AuthorizedXML) > 0 {
+		doc = inv.AuthorizedXML
+	}
+	out, err := danfe.Generate(doc, danfe.Options{Canceled: inv.Status == entity.StatusCanceled})
+	if err != nil {
+		helpers.WriteInternalError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `inline; filename="`+inv.AccessKey+`-danfe.pdf"`)
+	_, _ = w.Write(out)
 }
 
 // List atende GET /v1/nfe.

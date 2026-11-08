@@ -11,6 +11,7 @@ docs/01-referencias.md. Código reaproveitado de projetos MIT, BSD ou Apache-2.0
 aviso de copyright original no arquivo onde foi incorporado.
 
 Inclui:
+- pkg/danfe/internal/pdf: adaptado de github.com/mschunke/gonfe/internal/pdf (MIT).
 - pkg/certificate: adaptado de github.com/mschunke/gonfe (MIT, Copyright (c) 2026 mschunke).
 - pkg/sefaz/endpoints.json e cstat.json: gerados a partir de github.com/nfephp-org/sped-nfe (MIT).
 - pkg/sefaz/icpbrasil.pem: certificados públicos da ICP-Brasil (ITI), na compilação CC0 de
