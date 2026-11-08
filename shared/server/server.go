@@ -18,6 +18,7 @@ import (
 
 	"github.com/alfredokang/kang-fiscal/internal/modules/certificate"
 	"github.com/alfredokang/kang-fiscal/internal/modules/issuer"
+	"github.com/alfredokang/kang-fiscal/internal/modules/numbering"
 	"github.com/alfredokang/kang-fiscal/internal/modules/taxrule"
 	"github.com/alfredokang/kang-fiscal/shared/config"
 	"github.com/alfredokang/kang-fiscal/shared/helpers"
@@ -66,6 +67,7 @@ func (s *Server) routes() chi.Router {
 	certificateModule := certificate.NewModule(s.db, s.box,
 		certificateIssuerAdapter{issuers: issuerModule.IssuerService})
 	taxModule := taxrule.NewModule(s.db)
+	numberingModule := numbering.NewModule(s.db, numberingIssuerAdapter{issuers: issuerModule.IssuerService})
 
 	r.Route("/v1", func(v1 chi.Router) {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que
@@ -76,6 +78,7 @@ func (s *Server) routes() chi.Router {
 			issuerModule.RegisterRoutes(admin)
 			certificateModule.RegisterRoutes(admin)
 			taxModule.RegisterRoutes(admin)
+			numberingModule.RegisterRoutes(admin)
 		})
 	})
 	return r

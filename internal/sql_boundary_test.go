@@ -28,6 +28,8 @@ import (
 var tableOwners = map[string]string{
 	"certificate_certificates": "certificate",
 	"issuer_issuers":           "issuer",
+	"numbering_reservations":   "numbering",
+	"numbering_series":         "numbering",
 	"taxrule_profiles":         "taxrule",
 	"taxrule_rates":            "taxrule",
 	// A tabela de controle das migrations não é de ninguém: quem a usa é o comando

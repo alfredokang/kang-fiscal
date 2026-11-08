@@ -42,7 +42,7 @@ webhook (`invoice.split_data`).
 | `issuer` | Emitente: CNPJ, IE, CRT, endereço fiscal, ambiente | ✅ F0 |
 | `credential` | Credenciais de API por tenant (HMAC com pepper, escopos), mostradas uma única vez | F1 |
 | `certificate` | A1 `.pfx` cifrado em repouso, raiz do CNPJ conferida, segredo do antigo apagado na troca, nunca devolvido | ✅ F1 |
-| `numbering` | Série e número com `FOR UPDATE`; inutilização automática de buraco | F1 |
+| `numbering` | Série e número com `FOR UPDATE` (50 reservas simultâneas sem buraco nem repetição), homologação e produção separadas, ajuste para quem migra sem poder voltar, lista de buracos a inutilizar | ✅ F1 |
 | `taxrule` | Perfis tributários do tenant, alíquotas de IBS/CBS por vigência e local (só 2026 semeado; sem alíquota, a emissão para), `POST /v1/admin/tax/simulate` | ✅ F1 |
 | `invoice` | NF-e 55 e NFC-e 65: `draft → signed → sent → authorized \| rejected \| denied → canceled`, eventos (cancelamento, CC-e), XML imutável | F1/F2 |
 | `contingency` | Status por UF, SVC-AN/SVC-RS automático, EPEC, NFC-e offline | F3 |

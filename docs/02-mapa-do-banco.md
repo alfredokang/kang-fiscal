@@ -10,4 +10,6 @@ como de algum módulo.
 | `certificate_certificates` | `certificate` | O A1 de cada emitente: dados públicos (titular, CNPJ, AC, validade, fingerprint) e o `.pfx` e a senha **cifrados**. Um ativo por emitente; o segredo do aposentado é apagado. |
 | `taxrule_profiles` | `taxrule` | Os perfis tributários do tenant (a regra fiscal de cada operação: CFOP, CST/CSOSN, alíquotas de ICMS, PIS, COFINS, IPI e a classificação do IBS/CBS), em JSONB. |
 | `taxrule_rates` | `taxrule` | As alíquotas de CBS, IBS UF e IBS municipal por vigência e local. Sem tenant: são lei. Restrição de exclusão impede duas vigentes no mesmo período. Só 2026 vem semeado. |
+| `numbering_series` | `numbering` | O próximo número de cada emitente, modelo, série e ambiente. Lida com `FOR UPDATE` na reserva. |
+| `numbering_reservations` | `numbering` | Cada número entregue a um documento (`reserved`, `used`, `voided`). As abertas e antigas são os buracos a inutilizar. Número único por série. |
 | `schema_migrations` | — | O que o `kang-fiscal migrate` já aplicou, por módulo e arquivo. |
