@@ -95,7 +95,7 @@ carrinho com o mesmo motor que vai emitir a nota.
 | **F2 — NFC-e 65** | QR Code + CSC, DANFCE, webhooks, auditoria | Venda de balcão emitida e impressa |
 | **F3 — Contingência** | SVC automática, EPEC, offline, consulta antes de reenviar sob caos | SEFAZ caindo no meio do envio não gera nota duplicada |
 | **F4 — Recebimento** | DistribuiçãoDF-e, manifestação | — |
-| **F5 — NFS-e Nacional** ✅ | DPS + Sefin Nacional, com IBS/CBS; consulta da DPS pelo Id antes de reenviar. Falta: cancelamento (e101101) e DANFSe | DPS validada no XSD da NT 009 e aceita em homologação |
+| **F5 — NFS-e Nacional** ✅ | DPS + Sefin Nacional, com IBS/CBS; consulta da DPS pelo Id antes de reenviar; cancelamento direto (e101101) e por análise fiscal (e101103), conferido na lista de eventos. Falta: DANFSe | DPS validada no XSD da NT 009 e aceita em homologação |
 | **F6 — Ecossistema** | SDKs gerados do OpenAPI (TS, PHP, Python), site de documentação; depois CT-e e MDF-e | — |
 
 **Primeiro cliente:** o backend da Minas Café. O módulo `invoice` previsto lá vira uma

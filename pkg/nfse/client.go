@@ -51,7 +51,9 @@ type Client struct {
 	http *http.Client
 }
 
-// NewClient monta o cliente com mTLS e a cadeia ICP-Brasil verificada (a mesma da NF-e).
+// NewClient monta o cliente com mTLS. O servidor é conferido contra as raízes públicas do
+// sistema mais a ICP-Brasil (sefaz.TrustPool): a Sefin Nacional apresenta cadeia GlobalSign
+// (AC SERPRO AR46, conferido em 08/11/2026 nos dois ambientes), não ICP-Brasil.
 func NewClient(cfg Config) (*Client, error) {
 	base := cfg.BaseURL
 	if base == "" {

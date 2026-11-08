@@ -5,3 +5,8 @@ SE/CGNFS-e em gov.br/nfse e em vigor na produção restrita (homologação) desd
 Copiado de github.com/Gomes343/PyNFSeNacional (MIT), que o usa nos próprios testes.
 
 Toda DPS que o `pkg/nfse` monta é validada contra ele (`xmllint --schema`).
+
+`20261020/pedRegEvento_v1.01.xsd` e `tiposEventos_v1.01.xsd`: o pedido de registro de evento
+(cancelamento e101101, análise fiscal e101103), que o pacote do PyNFSeNacional não traz.
+Copiados de github.com/akretion/nfelib (MIT), `nfelib/nfse/schemas/v1_0`. Eles incluem o
+`tiposComplexos_v1.01.xsd` deste mesmo diretório.

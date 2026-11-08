@@ -150,6 +150,18 @@ O Sistema Nacional calcula IBS e CBS e devolve a NFS-e. Se a resposta se perder,
 Fiscal consulta a DPS pelo Id antes de pensar em reenviar: o mesmo serviço nunca vira duas
 notas. `GET /v1/nfse/{chave}/xml` baixa a NFS-e.
 
+Para cancelar:
+
+```bash
+curl -X POST localhost:8080/v1/nfse/$CHAVE/cancel -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"reason": 1, "justification": "Valor do serviço informado errado"}'
+```
+
+Onde o município não deixa cancelar direto (a Sefin responde E0823), use
+`"mode": "analysis"`: vai o pedido de análise fiscal, a nota segue válida e o worker a marca
+como cancelada quando o município deferir. O E0840 ("já há evento vinculado") nunca é lido
+como "cancelada": o Kang Fiscal consulta os eventos da nota antes de decidir.
+
 ### Testar o seu certificado A1
 
 ```bash
@@ -228,7 +240,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | NFC-e offline: o caixa não para quando a SEFAZ cai, e a venda nunca vira duas notas | ✅ |
 | Recebimento de notas de fornecedores e manifestação do destinatário (`/v1/dfe/...`) | ✅ |
 | NFS-e no padrão nacional (`POST /v1/nfse`), com IBS/CBS, sem duplicar nota em timeout | ✅ |
-| Cancelamento da NFS-e e DANFSe | 🔜 |
+| Cancelamento da NFS-e, direto ou por análise fiscal (`POST /v1/nfse/{chave}/cancel`) | ✅ |
+| DANFSe em PDF | 🔜 |
 | SDKs (TS, PHP, Python) e OpenAPI | 🔜 F6 |
 
 ## Arquitetura

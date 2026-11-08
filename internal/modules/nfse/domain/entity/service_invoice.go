@@ -16,6 +16,13 @@ const (
 	StatusRejected   Status = "rejected"   // DPS recusada (E-code)
 	StatusUncertain  Status = "uncertain"  // sem resposta: consultar a DPS antes de reenviar
 	StatusNotSent    Status = "not_sent"   // certificado recusado: nada foi processado
+	StatusCanceled   Status = "canceled"   // cancelamento registrado no Sistema Nacional
+)
+
+// Andamento do cancelamento por análise fiscal (e101103).
+const (
+	CancelAnalysis = "analysis" // pedido feito; a nota segue válida até o município decidir
+	CancelDenied   = "denied"   // o município negou; a nota segue válida
 )
 
 // ServiceInvoice é a NFS-e (e a DPS que a originou).
@@ -30,6 +37,7 @@ type ServiceInvoice struct {
 	AccessKey               string // chave de 50 posições, quando gerada
 	NFSeNumber              string
 	Status                  Status
+	CancelState             string
 	ErrorCode, Message      string
 	Total                   string
 	SignedXML, NFSeXML      []byte
@@ -47,4 +55,9 @@ func (s *ServiceInvoice) Authorize(key, number string, doc []byte, at time.Time)
 // Settle registra um resultado que não é autorização.
 func (s *ServiceInvoice) Settle(status Status, code, message string, at time.Time) {
 	s.Status, s.ErrorCode, s.Message, s.UpdatedAt = status, code, message, at
+}
+
+// Cancel marca a nota como cancelada.
+func (s *ServiceInvoice) Cancel(at time.Time) {
+	s.Status, s.CancelState, s.UpdatedAt = StatusCanceled, "", at
 }

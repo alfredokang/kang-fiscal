@@ -55,3 +55,30 @@ func (g *Gateway) Get(ctx context.Context, cert *certificate.Certificate, env in
 	}
 	return c.Get(ctx, key)
 }
+
+// SendEvent envia o pedido de evento.
+func (g *Gateway) SendEvent(ctx context.Context, cert *certificate.Certificate, env int, key string, signed []byte) (nfse.EventResult, error) {
+	c, err := g.client(cert, env)
+	if err != nil {
+		return nfse.EventResult{}, err
+	}
+	return c.SendEvent(ctx, key, signed)
+}
+
+// EventRegistered consulta se a nota tem o evento (sequencial 1).
+func (g *Gateway) EventRegistered(ctx context.Context, cert *certificate.Certificate, env int, key, kind string) (bool, error) {
+	c, err := g.client(cert, env)
+	if err != nil {
+		return false, err
+	}
+	return c.EventRegistered(ctx, key, kind, 1)
+}
+
+// CancelState pergunta à Sefin pelos eventos de cancelamento da nota.
+func (g *Gateway) CancelState(ctx context.Context, cert *certificate.Certificate, env int, key string) (string, error) {
+	c, err := g.client(cert, env)
+	if err != nil {
+		return "", err
+	}
+	return c.CancelState(ctx, key)
+}

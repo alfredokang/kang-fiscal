@@ -36,6 +36,7 @@ var tableOwners = map[string]string{
 	"invoice_voids":            "invoice",
 	"issuer_issuers":           "issuer",
 	"nfse_documents":           "nfse",
+	"nfse_events":              "nfse",
 	"numbering_reservations":   "numbering",
 	"numbering_series":         "numbering",
 	"taxrule_profiles":         "taxrule",

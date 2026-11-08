@@ -78,6 +78,7 @@ type invoiceResponse struct {
 	Number      int       `json:"dps_number"`
 	Environment string    `json:"environment"`
 	Status      string    `json:"status"`
+	CancelState string    `json:"cancel_state,omitempty"`
 	ErrorCode   string    `json:"error_code,omitempty"`
 	Message     string    `json:"message,omitempty"`
 	Total       string    `json:"total"`
@@ -87,7 +88,7 @@ type invoiceResponse struct {
 
 func toResponse(s *entity.ServiceInvoice) invoiceResponse {
 	return invoiceResponse{ID: s.ID, DPSID: s.DPSID, AccessKey: s.AccessKey, NFSeNumber: s.NFSeNumber, Series: s.Series,
-		Number: s.Number, Environment: s.Environment, Status: string(s.Status), ErrorCode: s.ErrorCode, Message: s.Message,
+		Number: s.Number, Environment: s.Environment, Status: string(s.Status), CancelState: s.CancelState, ErrorCode: s.ErrorCode, Message: s.Message,
 		Total: s.Total, XMLHash: s.XMLHash, CreatedAt: s.CreatedAt}
 }
 
@@ -200,10 +201,12 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		helpers.WriteError(w, http.StatusNotFound, err.Error(), "NOT_FOUND")
 	case errors.Is(err, domain.ErrIdempotencyConflict):
 		helpers.WriteError(w, http.StatusConflict, err.Error(), "IDEMPOTENCY_CONFLICT")
+	case errors.Is(err, domain.ErrNotAuthorized):
+		helpers.WriteError(w, http.StatusConflict, err.Error(), "NOT_AUTHORIZED")
 	case errors.Is(err, domain.ErrNoCertificate):
 		helpers.WriteError(w, http.StatusUnprocessableEntity, err.Error(), "NO_CERTIFICATE")
 	case errors.Is(err, domain.ErrIdempotencyKey), errors.Is(err, domain.ErrInvalidRequest),
-		errors.Is(err, domain.ErrIssuerIncomplete), errors.Is(err, nfse.ErrInvalid):
+		errors.Is(err, domain.ErrIssuerIncomplete), errors.Is(err, nfse.ErrInvalid), errors.Is(err, domain.ErrInvalidEvent):
 		helpers.WriteError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION")
 	default:
 		helpers.WriteInternalError(w, r, err)
@@ -226,4 +229,6 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 	r.Get("/nfse", h.List)
 	r.Get("/nfse/{key}", h.Get)
 	r.Get("/nfse/{key}/xml", h.XML)
+	r.Post("/nfse/{key}/cancel", h.Cancel)
+	r.Get("/nfse/{key}/events", h.Events)
 }

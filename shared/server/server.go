@@ -27,6 +27,7 @@ import (
 	"github.com/alfredokang/kang-fiscal/internal/modules/issuer"
 	"github.com/alfredokang/kang-fiscal/internal/modules/nfse"
 	nfseout "github.com/alfredokang/kang-fiscal/internal/modules/nfse/application/port/output"
+	nfseusecase "github.com/alfredokang/kang-fiscal/internal/modules/nfse/application/usecase"
 	"github.com/alfredokang/kang-fiscal/internal/modules/numbering"
 	"github.com/alfredokang/kang-fiscal/internal/modules/taxrule"
 	"github.com/alfredokang/kang-fiscal/pkg/nfe"
@@ -43,6 +44,7 @@ type Server struct {
 	dfe         *dfeusecase.DFeService
 	dfeGateway  dfeout.Gateway
 	nfseGateway nfseout.Gateway
+	nfse        *nfseusecase.Service
 	db          *sql.DB
 	box         *secretbox.Box
 	sefaz       invoiceout.SefazGateway
@@ -57,6 +59,9 @@ func WithDFeGateway(g dfeout.Gateway) Option { return func(s *Server) { s.dfeGat
 
 // WithNFSeGateway troca o gateway da Sefin Nacional (testes).
 func WithNFSeGateway(g nfseout.Gateway) Option { return func(s *Server) { s.nfseGateway = g } }
+
+// NFSe devolve o serviço da NFS-e (o worker resolve as incertas).
+func (s *Server) NFSe() *nfseusecase.Service { return s.nfse }
 
 // DFe devolve o serviço de recebimento (o worker sincroniza).
 func (s *Server) DFe() *dfeusecase.DFeService { return s.dfe }
@@ -120,6 +125,7 @@ func (s *Server) routes() chi.Router {
 	s.dfe = dfeModule.Service
 	nfseDeps := nfseAdapter{issuers: issuerModule.IssuerService, certs: certificateModule.CertificateService, numbers: numberingModule.Service}
 	nfseModule := nfse.NewModule(s.db, nfseDeps, nfseDeps, nfseDeps, s.nfseGateway)
+	s.nfse = nfseModule.Service
 
 	r.Route("/v1", func(v1 chi.Router) {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que

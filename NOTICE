@@ -19,3 +19,6 @@ Inclui:
 - pkg/xmldsig/testdata: documentos dos fixtures do sped-nfe (MIT).
 - pkg/nfse/testdata/schemas: schemas oficiais da DPS (SE/CGNFS-e), na cópia de
   github.com/Gomes343/PyNFSeNacional (MIT).
+
+Schemas do pedido de evento da NFS-e (pedRegEvento_v1.01.xsd, tiposEventos_v1.01.xsd):
+copiados de github.com/akretion/nfelib (MIT).

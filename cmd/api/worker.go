@@ -65,6 +65,11 @@ var Worker = &cobra.Command{
 			if synced, received, errs := srv.DFe().SyncDue(ctx, 100); received > 0 || len(errs) > 0 {
 				logger.SugaredLogger.Infow("notas recebidas", "emitentes", synced, "documentos", received, "erros", errs)
 			}
+			// NFS-e: DPS e cancelamentos sem resposta (conferidos antes de qualquer reenvio) e
+			// as decisões do município sobre os pedidos de análise fiscal.
+			if ns := srv.NFSe().Sweep(ctx, 2*time.Minute, 200); ns.Documents > 0 || ns.Events > 0 || ns.Analyses > 0 || len(ns.Errors) > 0 {
+				logger.SugaredLogger.Infow("NFS-e", "notas", ns.Documents, "eventos", ns.Events, "análises", ns.Analyses, "erros", ns.Errors)
+			}
 			res := srv.Invoices().SweepPending(ctx, age, 500)
 			if res.Checked > 0 || len(res.Errors) > 0 {
 				logger.SugaredLogger.Infow("varredura de inutilização", "conferidos", res.Checked,
