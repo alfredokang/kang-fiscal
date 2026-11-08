@@ -52,3 +52,21 @@ codes = {c["cod"]: {"message": c["msg"].strip(), "hint": (c.get("correct") or ""
 json.dump({"source": tables["source"], "codes": codes}, open(os.path.join(out, "cstat.json"), "w"),
           ensure_ascii=False, indent=1, sort_keys=True)
 print(len(codes), "códigos;", sum(len(v) for m in tables["services"].values() for v in m.values()), "conjuntos de endereços")
+
+# NFC-e: a URL base do QR Code (NfeConsultaQR, do wsnfe mod65) e a URL de consulta por chave
+# (urlChave, de uri_consulta_nfce.json), por ambiente e UF.
+root = ET.parse(os.path.join(src, "wsnfe_4.00_mod65.xml")).getroot()
+qr = {"homologation": {}, "production": {}}
+for uf in root.findall("UF"):
+    sigla = uf.find("sigla").text.strip()
+    for env_pt, env in ENVS.items():
+        node = uf.find(env_pt)
+        el = node.find("NfeConsultaQR") if node is not None else None
+        if el is not None and (el.text or "").strip():
+            qr[env][sigla] = el.text.strip()
+keys_raw = json.load(open(os.path.join(src, "uri_consulta_nfce.json")))
+keys = {"production": keys_raw["1"], "homologation": keys_raw["2"]}
+nfce_out = os.path.join(os.path.dirname(out.rstrip("/")), "nfce")
+json.dump({"source": tables["source"], "qr_code": qr, "url_chave": keys}, open(os.path.join(nfce_out, "urls.json"), "w"),
+          ensure_ascii=False, indent=1, sort_keys=True)
+print(sum(len(v) for v in qr.values()), "URLs de QR Code")

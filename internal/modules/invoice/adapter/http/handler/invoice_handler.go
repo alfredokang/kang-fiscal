@@ -154,6 +154,9 @@ func toDraft(b request.IssueRequest) service.Draft {
 	if b.Recipient.Address.UF != "" {
 		d.Recipient.Address = addr(b.Recipient.Address)
 	}
+	if d.Recipient.CNPJ == "" && d.Recipient.CPF == "" {
+		d.Recipient = nil // consumidor não identificado
+	}
 	for _, it := range b.Items {
 		d.Lines = append(d.Lines, service.Line{Code: it.Code, Description: it.Description, NCM: digits(it.NCM),
 			CEST: digits(it.CEST), GTIN: it.GTIN, Unit: it.Unit, Quantity: it.Quantity, UnitPrice: it.UnitPrice,

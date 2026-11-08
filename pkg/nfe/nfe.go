@@ -31,6 +31,15 @@ type NFe struct {
 	XMLName xml.Name `xml:"NFe"`
 	Xmlns   string   `xml:"xmlns,attr"`
 	InfNFe  InfNFe   `xml:"infNFe"`
+	// InfNFeSupl é só da NFC-e: o QR Code e a URL de consulta. Fica fora do bloco
+	// assinado (o Signature vem depois dele).
+	InfNFeSupl *InfNFeSupl `xml:"infNFeSupl,omitempty"`
+}
+
+// InfNFeSupl são as informações suplementares da NFC-e.
+type InfNFeSupl struct {
+	QRCode   string `xml:"qrCode"`
+	URLChave string `xml:"urlChave"`
 }
 
 // InfNFe é o bloco assinado.

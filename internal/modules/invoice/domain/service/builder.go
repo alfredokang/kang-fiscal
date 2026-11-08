@@ -11,6 +11,7 @@ import (
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain"
 	"github.com/alfredokang/kang-fiscal/pkg/accesskey"
 	"github.com/alfredokang/kang-fiscal/pkg/decimal"
+	"github.com/alfredokang/kang-fiscal/pkg/nfce"
 	"github.com/alfredokang/kang-fiscal/pkg/nfe"
 	"github.com/alfredokang/kang-fiscal/pkg/tax"
 )
@@ -18,6 +19,10 @@ import (
 // HomologationName é o que a SEFAZ exige no nome do destinatário em homologação
 // (rejeição 598 sem ele).
 const HomologationName = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"
+
+// HomologationItemNFCe é o que a SEFAZ exige na descrição do primeiro item da NFC-e em
+// homologação.
+const HomologationItemNFCe = "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"
 
 // Address é um endereço.
 type Address struct {
@@ -76,9 +81,8 @@ type Draft struct {
 
 // Validate confere o que impede a emissão antes de reservar número.
 func (d Draft) Validate(issuer IssuerSnapshot) error {
-	if d.Model != 55 {
-		// A NFC-e precisa do QR Code assinado com o CSC: entra na fase F2.
-		return fmt.Errorf("%w: por enquanto só NF-e modelo 55", domain.ErrNotSupported)
+	if d.Model != 55 && d.Model != 65 {
+		return fmt.Errorf("%w: modelo 55 (NF-e) ou 65 (NFC-e)", domain.ErrInvalidRequest)
 	}
 	if strings.TrimSpace(d.NatOp) == "" || len(d.Lines) == 0 || len(d.Payments) == 0 {
 		return domain.ErrRequiredField
@@ -86,13 +90,21 @@ func (d Draft) Validate(issuer IssuerSnapshot) error {
 	if len(d.Lines) > 990 {
 		return fmt.Errorf("%w: no máximo 990 itens por nota", domain.ErrInvalidRequest)
 	}
-	if d.Recipient == nil {
-		return fmt.Errorf("%w: a NF-e exige destinatário", domain.ErrRequiredField)
+	if d.Model == 65 {
+		// NFC-e é a venda ao consumidor final dentro da UF. Destinatário é opcional
+		// (consumidor não identificado, ou só o CPF).
+		if Interstate(d, issuer) {
+			return fmt.Errorf("%w: NFC-e é só para venda dentro da UF; use NF-e (modelo 55)", domain.ErrInvalidRequest)
+		}
+	} else {
+		if d.Recipient == nil {
+			return fmt.Errorf("%w: a NF-e exige destinatário", domain.ErrRequiredField)
+		}
+		if d.Recipient.Address == nil {
+			return fmt.Errorf("%w: endereço do destinatário", domain.ErrRequiredField)
+		}
 	}
-	if d.Recipient.Address == nil {
-		return fmt.Errorf("%w: endereço do destinatário", domain.ErrRequiredField)
-	}
-	if Interstate(d, issuer) && d.FinalConsumer && d.Recipient.IEIndicator == 9 {
+	if d.Model == 55 && Interstate(d, issuer) && d.FinalConsumer && d.Recipient.IEIndicator == 9 {
 		// Venda para consumidor final de outra UF exige a partilha do ICMS (DIFAL), que o
 		// motor ainda não calcula. Emitir sem ela é rejeição; recusar aqui é honesto.
 		return fmt.Errorf("%w: venda interestadual a consumidor final não contribuinte (DIFAL)", domain.ErrNotSupported)
@@ -140,7 +152,11 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 		if gtin == "" {
 			gtin = "SEM GTIN"
 		}
-		p := nfe.Prod{CProd: clean(l.Code, 60), CEAN: gtin, XProd: clean(l.Description, 120), NCM: l.NCM, CEST: l.CEST,
+		desc := clean(l.Description, 120)
+		if d.Model == 65 && tpAmb == 2 && i == 0 {
+			desc = HomologationItemNFCe
+		}
+		p := nfe.Prod{CProd: clean(l.Code, 60), CEAN: gtin, XProd: desc, NCM: l.NCM, CEST: l.CEST,
 			CFOP: taxes[i].CFOP, UCom: clean(l.Unit, 6), QCom: l.Quantity, VUnCom: l.UnitPrice, VProd: taxes[i].VProd,
 			CEANTrib: gtin, UTrib: clean(l.Unit, 6), QTrib: l.Quantity, VUnTrib: l.UnitPrice, IndTot: 1}
 		for _, pair := range []struct {
@@ -163,7 +179,13 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 	pag := nfe.Pag{}
 	for _, p := range d.Payments {
 		amount, _ := p.Amount.Rescale(2, decimal.HalfUp)
-		pag.DetPag = append(pag.DetPag, nfe.DetPag{TPag: p.Method, VPag: amount})
+		dp := nfe.DetPag{TPag: p.Method, VPag: amount}
+		if p.Method == "03" || p.Method == "04" {
+			// Cartão exige o grupo card; 2 = pagamento em maquininha não integrada ao
+			// sistema, o caso mais comum. Quem integra TEF informa os dados completos.
+			dp.Card = &nfe.Card{TpIntegra: 2}
+		}
+		pag.DetPag = append(pag.DetPag, dp)
 		paid, _ = paid.Add(amount)
 	}
 	if paid.Cmp(total.ICMSTot.VNF) < 0 && !(len(d.Payments) == 1 && d.Payments[0].Method == "90") {
@@ -179,19 +201,23 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 		idDest = 2
 	}
 	indFinal := 0
-	if d.FinalConsumer {
+	if d.FinalConsumer || d.Model == 65 {
 		indFinal = 1
+	}
+	tpImp, presence := 1, orDefault(d.Presence, 2)
+	if d.Model == 65 {
+		tpImp, presence = 4, orDefault(d.Presence, 1)
 	}
 	k := key.String()
 	n := &nfe.NFe{InfNFe: nfe.InfNFe{
 		ID: "NFe" + k,
 		Ide: nfe.Ide{CUF: ufCode, CNF: k[35:43], NatOp: clean(d.NatOp, 60), Mod: d.Model, Serie: d.Series, NNF: number,
 			DhEmi: issued.Format("2006-01-02T15:04:05-07:00"), TpNF: 1, IdDest: idDest, CMunFG: issuer.Address.CityCode,
-			TpImp: 1, TpEmis: 1, CDV: int(k[43] - '0'), TpAmb: tpAmb, FinNFe: orDefault(d.Purpose, 1), IndFinal: indFinal,
-			IndPres: orDefault(d.Presence, 2), ProcEmi: 0, VerProc: "kang-fiscal"},
+			TpImp: tpImp, TpEmis: 1, CDV: int(k[43] - '0'), TpAmb: tpAmb, FinNFe: orDefault(d.Purpose, 1), IndFinal: indFinal,
+			IndPres: presence, ProcEmi: 0, VerProc: "kang-fiscal"},
 		Emit: nfe.Emit{CNPJ: issuer.CNPJ, XNome: clean(issuer.Name, 60), XFant: clean(issuer.TradeName, 60),
 			EnderEmit: address(issuer.Address, true), IE: issuer.IE, CRT: issuer.CRT},
-		Dest:       recipient(*d.Recipient, tpAmb),
+		Dest:       recipient(d.Recipient, tpAmb),
 		Det:        items,
 		Total:      total,
 		Transp:     nfe.Transp{ModFrete: orDefault(d.FreightMode, 9)},
@@ -201,10 +227,21 @@ func Build(d Draft, issuer IssuerSnapshot, number, code int, taxes []tax.Result)
 	if info := clean(d.AdditionalInfo, 5000); info != "" {
 		n.InfNFe.InfAdic = &nfe.InfAdic{InfCpl: info}
 	}
+	if d.Model == 65 {
+		supl, err := nfce.Supplement(issuer.Address.UF, k, tpAmb)
+		if err != nil {
+			return nil, "", err
+		}
+		n.InfNFeSupl = supl
+	}
 	return n, key, nil
 }
 
-func recipient(r Recipient, tpAmb int) *nfe.Dest {
+func recipient(rp *Recipient, tpAmb int) *nfe.Dest {
+	if rp == nil || (rp.CNPJ == "" && rp.CPF == "") {
+		return nil // consumidor não identificado (NFC-e)
+	}
+	r := *rp
 	name := clean(r.Name, 60)
 	if tpAmb == 2 {
 		name = HomologationName
