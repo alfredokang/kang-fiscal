@@ -28,6 +28,8 @@ import (
 var tableOwners = map[string]string{
 	"certificate_certificates": "certificate",
 	"credential_keys":          "credential",
+	"dfe_cursors":              "dfe",
+	"dfe_documents":            "dfe",
 	"invoice_contingency":      "invoice",
 	"invoice_events":           "invoice",
 	"invoice_invoices":         "invoice",

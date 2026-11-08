@@ -7,6 +7,8 @@ como de algum módulo.
 | Tabela | Módulo | O que guarda |
 |---|---|---|
 | `credential_keys` | `credential` | As credenciais de API por tenant: prefixo público, HMAC-SHA256 do segredo com o pepper do ambiente, escopos, último uso e revogação. O token completo nunca é guardado. |
+| `dfe_cursors` | `dfe` | A posição da distribuição de cada emitente (último NSU, NSU máximo) e quando a próxima consulta pode sair — a SEFAZ bloqueia por uma hora quem consulta sem documento novo. |
+| `dfe_documents` | `dfe` | As notas e os eventos recebidos contra o CNPJ: resumo (resNFe), XML completo (procNFe), resumos de evento; índice de emitente, valor e data; a manifestação registrada. NSU único por emitente. |
 | `issuer_issuers` | `issuer` | O emitente: CNPJ (inclusive alfanumérico), IE, CRT, endereço fiscal com código IBGE e ambiente (homologação/produção). Um CNPJ por tenant. |
 | `certificate_certificates` | `certificate` | O A1 de cada emitente: dados públicos (titular, CNPJ, AC, validade, fingerprint) e o `.pfx` e a senha **cifrados**. Um ativo por emitente; o segredo do aposentado é apagado. |
 | `taxrule_profiles` | `taxrule` | Os perfis tributários do tenant (a regra fiscal de cada operação: CFOP, CST/CSOSN, alíquotas de ICMS, PIS, COFINS, IPI e a classificação do IBS/CBS), em JSONB. |

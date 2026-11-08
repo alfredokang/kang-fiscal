@@ -66,3 +66,20 @@ func TestCancelamentoPorSubstituicaoPassaNoXSD(t *testing.T) {
 	raw, _ := nfe.MarshalSubstitution(ev)
 	nfetest.MustValidateSchema(t, nfe.EventBatch(1, nfetest.SignEvent(t, raw)), "envEventoCancSubst_v1.00.xsd")
 }
+
+func TestManifestacaoPassaNoXSD(t *testing.T) {
+	for _, tp := range []string{nfe.ManifestConfirmation, nfe.ManifestAwareness, nfe.ManifestUnknown, nfe.ManifestNotPerformed} {
+		ev, err := nfe.NewManifestation(party, tp, "A mercadoria nunca foi entregue no endereco")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ev.InfEvento.COrgao != 91 {
+			t.Errorf("%s: cOrgao %d", tp, ev.InfEvento.COrgao)
+		}
+		raw, _ := nfe.MarshalEvent(ev)
+		nfetest.MustValidateSchema(t, nfe.EventBatch(1, nfetest.SignEvent(t, raw)), "envConfRecebto_v1.00.xsd")
+	}
+	if _, err := nfe.NewManifestation(party, nfe.ManifestNotPerformed, "curta"); err == nil {
+		t.Error("operação não realizada sem justificativa")
+	}
+}

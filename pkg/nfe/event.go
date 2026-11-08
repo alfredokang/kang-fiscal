@@ -184,3 +184,43 @@ func NewSubstitution(p EventParty, protocol, justification, replacedBy, verAplic
 
 // MarshalSubstitution serializa o evento, pronto para assinar o infEvento.
 func MarshalSubstitution(e *SubstitutionEvent) ([]byte, error) { return xml.Marshal(e) }
+
+// Manifestações do destinatário (enviadas ao Ambiente Nacional, cOrgao 91).
+const (
+	ManifestConfirmation = "210200" // Confirmação da Operação: a mercadoria chegou
+	ManifestAwareness    = "210210" // Ciência da Operação: libera o download do XML completo
+	ManifestUnknown      = "210220" // Desconhecimento: a empresa não reconhece a nota
+	ManifestNotPerformed = "210240" // Operação não Realizada (exige justificativa)
+)
+
+// OrgAN é o cOrgao do Ambiente Nacional.
+const OrgAN = 91
+
+var manifestDesc = map[string]string{
+	ManifestConfirmation: "Confirmacao da Operacao",
+	ManifestAwareness:    "Ciencia da Operacao",
+	ManifestUnknown:      "Desconhecimento da Operacao",
+	ManifestNotPerformed: "Operacao nao Realizada",
+}
+
+// ErrManifestType: tipo de manifestação desconhecido.
+var ErrManifestType = errors.New("nfe: manifestação inválida (210200, 210210, 210220 ou 210240)")
+
+// NewManifestation monta a manifestação do destinatário sobre a nota p.Key. p.CNPJ é o do
+// DESTINATÁRIO (quem manifesta) e p.OrgCode é o do Ambiente Nacional (91).
+func NewManifestation(p EventParty, tpEvento, justification string) (*Evento, error) {
+	desc, ok := manifestDesc[tpEvento]
+	if !ok {
+		return nil, ErrManifestType
+	}
+	det := DetEvento{DescEvento: desc}
+	if tpEvento == ManifestNotPerformed {
+		j := cleanText(justification)
+		if n := utf8.RuneCountInString(j); n < 15 || n > 255 {
+			return nil, ErrJustification
+		}
+		det.XJust = j
+	}
+	p.OrgCode = OrgAN
+	return newEvent(p, tpEvento, 1, det), nil
+}

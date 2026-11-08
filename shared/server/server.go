@@ -18,6 +18,9 @@ import (
 
 	"github.com/alfredokang/kang-fiscal/internal/modules/certificate"
 	"github.com/alfredokang/kang-fiscal/internal/modules/credential"
+	"github.com/alfredokang/kang-fiscal/internal/modules/dfe"
+	dfeout "github.com/alfredokang/kang-fiscal/internal/modules/dfe/application/port/output"
+	dfeusecase "github.com/alfredokang/kang-fiscal/internal/modules/dfe/application/usecase"
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice"
 	invoiceout "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/port/output"
 	invoiceusecase "github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/usecase"
@@ -34,15 +37,23 @@ import (
 
 // Server é a API HTTP.
 type Server struct {
-	invoices *invoiceusecase.InvoiceService
-	db       *sql.DB
-	box      *secretbox.Box
-	sefaz    invoiceout.SefazGateway
-	router   chi.Router
+	invoices   *invoiceusecase.InvoiceService
+	dfe        *dfeusecase.DFeService
+	dfeGateway dfeout.Gateway
+	db         *sql.DB
+	box        *secretbox.Box
+	sefaz      invoiceout.SefazGateway
+	router     chi.Router
 }
 
 // Option ajusta o servidor (testes trocam a SEFAZ por uma falsa).
 type Option func(*Server)
+
+// WithDFeGateway troca o gateway do Ambiente Nacional (testes).
+func WithDFeGateway(g dfeout.Gateway) Option { return func(s *Server) { s.dfeGateway = g } }
+
+// DFe devolve o serviço de recebimento (o worker sincroniza).
+func (s *Server) DFe() *dfeusecase.DFeService { return s.dfe }
 
 // WithSefaz troca o gateway da SEFAZ.
 func WithSefaz(g invoiceout.SefazGateway) Option { return func(s *Server) { s.sefaz = g } }
@@ -98,6 +109,9 @@ func (s *Server) routes() chi.Router {
 		RespTec:  respTec(),
 	})
 	s.invoices = invoiceModule.Service
+	dfeModule := dfe.NewModule(s.db, dfeAdapter{issuers: issuerModule.IssuerService, certs: certificateModule.CertificateService},
+		dfeAdapter{issuers: issuerModule.IssuerService, certs: certificateModule.CertificateService}, s.dfeGateway)
+	s.dfe = dfeModule.Service
 
 	r.Route("/v1", func(v1 chi.Router) {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que
@@ -126,6 +140,7 @@ func (s *Server) routes() chi.Router {
 			taxModule.RegisterTenantRoutes(api)
 			numberingModule.RegisterRoutes(api)
 			invoiceModule.RegisterRoutes(api)
+			dfeModule.RegisterRoutes(api)
 		})
 	})
 	return r

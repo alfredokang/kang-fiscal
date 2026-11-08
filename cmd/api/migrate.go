@@ -33,6 +33,8 @@ var moduleMigrationPaths = []string{
 	"internal/modules/numbering/infrastructure/persistence/postgres/migrations",
 	// invoice por último: referencia emitente e reserva como texto opaco, sem FK (Art. 2).
 	"internal/modules/invoice/infrastructure/persistence/postgres/migrations",
+	// dfe: as notas recebidas; o emitente é texto opaco, sem FK (Art. 2).
+	"internal/modules/dfe/infrastructure/persistence/postgres/migrations",
 }
 
 var migrateModule string

@@ -1,8 +1,11 @@
 package sefaz_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -227,5 +230,30 @@ func TestInutilizacaoHomologada(t *testing.T) {
 	res, err := c.VoidRange(context.Background(), sp, []byte(`<inutNFe/>`))
 	if err != nil || !res.Voided() || res.Protocol != "135260000000555" || !strings.HasPrefix(string(res.RetInut), "<retInutNFe") {
 		t.Errorf("inutilização: %+v %v", res, err)
+	}
+}
+
+func TestDistribuicaoDFe(t *testing.T) {
+	var gz bytes.Buffer
+	w := gzip.NewWriter(&gz)
+	_, _ = io.WriteString(w, `<resNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01"><chNFe>35261199888777000166550010000000101000000105</chNFe><CNPJ>99888777000166</CNPJ><xNome>FORNECEDOR</xNome><vNF>1500.00</vNF><cSitNFe>1</cSitNFe></resNFe>`)
+	_ = w.Close()
+	doc := base64.StdEncoding.EncodeToString(gz.Bytes())
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(body), `<nfeDistDFeInteresse xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"><nfeDadosMsg`) ||
+			!strings.Contains(string(body), `<distNSU><ultNSU>000000000000041</ultNSU></distNSU>`) {
+			t.Errorf("envelope: %s", body)
+		}
+		_, _ = io.WriteString(w, `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><nfeDistDFeInteresseResponse xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"><nfeDistDFeInteresseResult><retDistDFeInt versao="1.01" xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><cStat>138</cStat><xMotivo>Documento localizado</xMotivo><ultNSU>000000000000042</ultNSU><maxNSU>000000000000042</maxNSU><loteDistDFeInt><docZip NSU="000000000000042" schema="resNFe_v1.01.xsd">`+doc+`</docZip></loteDistDFeInt></retDistDFeInt></nfeDistDFeInteresseResult></nfeDistDFeInteresseResponse></soap:Body></soap:Envelope>`)
+	}))
+	defer srv.Close()
+	table, _ := sefaz.DefaultTable()
+	table.Override(sefaz.NFe, "AN", sefaz.Homologation, sefaz.ServiceDFeDistribution, sefaz.Endpoint{URL: srv.URL, Operation: "NFeDistribuicaoDFe", Method: "nfeDistDFeInteresse"})
+	c, _ := sefaz.NewClient(sefaz.Config{Table: table, HTTPClient: srv.Client()})
+	res, err := c.Distribute(context.Background(), sefaz.DistributionQuery{Environment: sefaz.Homologation, UFCode: 35, CNPJ: "11222333000181", LastNSU: 41})
+	if err != nil || res.CStat != 138 || res.LastNSU != 42 || len(res.Docs) != 1 || res.Docs[0].Schema != "resNFe_v1.01.xsd" ||
+		!strings.Contains(string(res.Docs[0].XML), "<xNome>FORNECEDOR</xNome>") {
+		t.Errorf("distribuição: %+v %v", res, err)
 	}
 }

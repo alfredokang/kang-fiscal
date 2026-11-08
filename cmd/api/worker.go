@@ -61,6 +61,10 @@ var Worker = &cobra.Command{
 				logger.SugaredLogger.Infow("NFC-e offline", "transmitidas", off.Transmitted, "autorizadas", off.Authorized,
 					"substituídas", off.Substituted, "liberadas", off.Released, "erros", off.Errors)
 			}
+			// Recebimento de notas: só os emitentes cuja espera de uma hora já passou.
+			if synced, received, errs := srv.DFe().SyncDue(ctx, 100); received > 0 || len(errs) > 0 {
+				logger.SugaredLogger.Infow("notas recebidas", "emitentes", synced, "documentos", received, "erros", errs)
+			}
 			res := srv.Invoices().SweepPending(ctx, age, 500)
 			if res.Checked > 0 || len(res.Errors) > 0 {
 				logger.SugaredLogger.Infow("varredura de inutilização", "conferidos", res.Checked,
