@@ -1,4 +1,6 @@
 .env
+# O modelo de variáveis das stacks preenchido.
+deploy/*.env
 /server
 /kang-fiscal
 *.pfx

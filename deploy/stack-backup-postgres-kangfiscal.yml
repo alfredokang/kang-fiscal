@@ -1,0 +1,98 @@
+version: "3.8"
+
+# ⚠️ Criar no Portainer com o nome de stack: backup_kangfiscal
+#    Passo a passo, restauração e cópia fora do servidor: docs/03-deploy-swarm.md
+#
+# Um pg_dump completo por dia, conferido e guardado com rodízio — 7 diários, 5 semanais
+# (domingo), 12 mensais (dia 1). Os arquivos ficam em /root/backups/kangfiscal NO
+# SERVIDOR, fora do volume do banco: apagar o volume ou a stack do Postgres não leva o
+# backup junto.
+#
+# Antes do primeiro deploy, no nó manager:
+#    mkdir -p /root/backups/kangfiscal
+#
+# POSTGRES_PASSWORD vem das "Environment variables" da stack no Portainer — a MESMA da
+# stack do Postgres.
+#
+# O backup tem os certificados CIFRADOS: para restaurá-los é preciso também a
+# SECRETS_ENCRYPTION_KEY, que NÃO está no backup. Guarde-a à parte.
+
+services:
+  backup:
+    # A mesma versão do banco: pg_dump mais velho que o servidor recusa o dump.
+    image: postgres:18-alpine
+    environment:
+      PGHOST: postgres_kangfiscal_postgres
+      PGPORT: "5432"
+      PGDATABASE: kangfiscal
+      PGUSER: kangfiscal
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      # A hora do backup, em UTC: 06 = 03h de Brasília.
+      BACKUP_HOUR_UTC: "06"
+      TZ: UTC
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -u
+        DIR=/backups
+        mkdir -p "$$DIR/diario" "$$DIR/semanal" "$$DIR/mensal"
+
+        backup() {
+          dia=$$(date -u +%Y-%m-%d)
+          alvo="$$DIR/diario/kangfiscal-$$dia.dump"
+          [ -f "$$alvo" ] && return 0
+          echo "$$(date -u) backup: começando $$alvo"
+          # -Fc: formato do pg_restore, compactado. Grava num .tmp e só renomeia depois de
+          # conferido: arquivo pela metade nunca passa por backup bom.
+          if pg_dump -Fc -Z 6 -f "$$alvo.tmp" && pg_restore --list "$$alvo.tmp" > /dev/null; then
+            mv "$$alvo.tmp" "$$alvo"
+            [ "$$(date -u +%u)" = "7" ] && cp "$$alvo" "$$DIR/semanal/"
+            [ "$$(date -u +%d)" = "01" ] && cp "$$alvo" "$$DIR/mensal/"
+            find "$$DIR/diario" -name '*.dump' -mtime +7 -delete
+            find "$$DIR/semanal" -name '*.dump' -mtime +35 -delete
+            find "$$DIR/mensal" -name '*.dump' -mtime +370 -delete
+            date -u +%Y-%m-%dT%H:%M:%SZ > "$$DIR/ULTIMO_BACKUP_OK"
+            echo "$$(date -u) backup: ok $$(du -h "$$alvo" | cut -f1)"
+          else
+            rm -f "$$alvo.tmp"
+            echo "$$(date -u) backup: FALHOU — tenta de novo na próxima conferência" >&2
+          fi
+        }
+
+        # Um backup logo ao subir (é o teste de que a stack funciona) e depois um por dia.
+        # Confere a cada 15 minutos: um backup perdido na hora certa sai na conferência
+        # seguinte do mesmo dia, sem esperar 24h.
+        backup
+        while true; do
+          sleep 900
+          [ "$$(date -u +%H)" = "$${BACKUP_HOUR_UTC}" ] && backup
+        done
+    volumes:
+      - type: bind
+        source: /root/backups/kangfiscal
+        target: /backups
+    networks:
+      - network_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+        delay: 30s
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  network_public:
+    external: true
+    name: network_public

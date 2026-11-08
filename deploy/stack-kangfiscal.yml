@@ -1,0 +1,128 @@
+version: "3.8"
+
+# ⚠️ Criar no Portainer com o nome de stack: kangfiscal
+#    Depende da stack postgres_kangfiscal (deploy/stack-postgres-kangfiscal.yml), que sobe
+#    ANTES desta. Passo a passo: docs/03-deploy-swarm.md
+#
+# Os valores vêm das "Environment variables" da stack no Portainer: o botão "Load
+# variables from .env file" aceita o deploy/kangfiscal.env.example preenchido. O Swarm
+# não lê `env_file` no editor web do Portainer, por isso cada variável aparece abaixo.
+
+x-app-env: &app-env
+  ENVIRONMENT: production
+  API_PORT: "8080"
+
+  # Nome do serviço = <stack>_<serviço>. A porta é a INTERNA, não a publicada.
+  POSTGRES_HOST: postgres_kangfiscal_postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: kangfiscal
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: kangfiscal
+  POSTGRES_SSL_MODE: disable
+
+  # Segredos: gere cada um com `openssl rand -base64 32`, um diferente para cada.
+  ADMIN_TOKEN: ${ADMIN_TOKEN}
+  # Cifra o certificado A1 no banco. GUARDE UMA CÓPIA FORA DO SERVIDOR: sem ela, os
+  # certificados gravados não abrem mais, nem a partir do backup.
+  SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY}
+  CREDENTIAL_PEPPER: ${CREDENTIAL_PEPPER}
+  RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-600}
+
+  # Responsável técnico (infRespTec): várias UFs exigem. Vazio = o grupo não vai na nota.
+  RESP_TEC_CNPJ: ${RESP_TEC_CNPJ:-}
+  RESP_TEC_CONTACT: ${RESP_TEC_CONTACT:-}
+  RESP_TEC_EMAIL: ${RESP_TEC_EMAIL:-}
+  RESP_TEC_PHONE: ${RESP_TEC_PHONE:-}
+
+  VOID_SWEEP_MINUTES: ${VOID_SWEEP_MINUTES:-60}
+  VOID_AFTER_HOURS: ${VOID_AFTER_HOURS:-24}
+  TZ: UTC
+
+services:
+  api:
+    # `latest` + "Re-pull image" no Portainer é o fluxo do dia a dia. Para fixar uma versão
+    # (ou voltar a uma anterior), defina IMAGE_TAG com o SHA impresso pelo `make publish`.
+    image: alfredokang/kang-fiscal:${IMAGE_TAG:-latest}
+    command: ["api"]
+    environment: *app-env
+    networks:
+      - network_public
+    deploy:
+      # A API não guarda estado: dá para subir réplicas. (O limite por minuto é contado em
+      # cada réplica; com 2, o efetivo é o dobro.)
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        # start-first: a versão nova passa no healthcheck antes da antiga cair. A emissão
+        # em andamento termina na antiga — o desligamento espera a requisição.
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        order: start-first
+        failure_action: pause
+      # Sem max_attempts: com ele, depois de N quedas o Swarm desiste e o emissor fica fora.
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.kangfiscal-api.rule=Host(`${API_DOMAIN}`)"
+        - "traefik.http.routers.kangfiscal-api.entrypoints=websecure"
+        - "traefik.http.routers.kangfiscal-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.kangfiscal-api.loadbalancer.server.port=8080"
+
+  worker:
+    image: alfredokang/kang-fiscal:${IMAGE_TAG:-latest}
+    command: ["worker"]
+    environment: *app-env
+    # O HEALTHCHECK da imagem consulta a porta HTTP da API. O worker não escuta nela, e
+    # herdar o healthcheck faria o Swarm matá-lo a cada poucos minutos.
+    healthcheck:
+      disable: true
+    networks:
+      - network_public
+    deploy:
+      # Pode ter mais de uma: um lock no Postgres garante uma rodada por vez. Uma basta.
+      replicas: 1
+      update_config:
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  migrate:
+    image: alfredokang/kang-fiscal:${IMAGE_TAG:-latest}
+    command: ["migrate"]
+    environment: *app-env
+    healthcheck:
+      disable: true
+    networks:
+      - network_public
+    deploy:
+      # Roda uma vez a cada deploy e termina. "on-failure" e não "any": com "any" o Swarm
+      # repetiria a migration para sempre depois do sucesso. Uma réplica só: o comando não
+      # tem lock, e duas instâncias aplicariam a mesma migration em paralelo.
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+networks:
+  network_public:
+    external: true
+    name: network_public

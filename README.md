@@ -106,6 +106,8 @@ A mesma imagem roda tudo; o comando escolhe o papel:
   (`POST /v1/admin/issuers/{id}/production`) depois de emitir, cancelar e imprimir lá.
 - **Relógio certo e UTC no servidor.** A SEFAZ recusa nota com horário no futuro, e o prazo
   de cancelamento conta horas desde a emissão.
+- **Docker Swarm com Portainer:** as stacks prontas (banco, emissor e backup) e o passo a
+  passo estão em [docs/03-deploy-swarm.md](docs/03-deploy-swarm.md).
 - **Fixe a versão da imagem** (`alfredokang/kang-fiscal:<versão>`) em vez de `latest`, e rode
   o `migrate` a cada atualização.
 

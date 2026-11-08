@@ -1,0 +1,97 @@
+version: "3.8"
+
+# ⚠️ Criar no Portainer com o nome de stack: postgres_kangfiscal
+#    Hostname dentro do Swarm: postgres_kangfiscal_postgres (é o POSTGRES_HOST da API)
+#    Passo a passo: docs/03-deploy-swarm.md
+#
+# Antes do primeiro deploy, no nó manager:
+#    docker volume create kangfiscal_postgres_data
+# Volume externo: uma stack removida por engano não pode levar as notas junto — a lei
+# manda guardar o XML por 5 anos.
+#
+# POSTGRES_PASSWORD vem das "Environment variables" da stack no Portainer, nunca escrita
+# aqui: este arquivo está no Git.
+
+services:
+  postgres:
+    # Só Postgres 18: a API recusa outra versão ao conectar.
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: kangfiscal
+      POSTGRES_USER: kangfiscal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # UTC: o prazo de cancelamento conta horas a partir da emissão.
+      TZ: UTC
+      PGTZ: UTC
+
+    # max_connections=100: no deploy da API (start-first) rodam juntos duas APIs, o worker
+    # e o migrate, cada um com pool de até 20 conexões — 80 no pior caso.
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c max_connections=100
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c max_wal_size=1GB
+      -c checkpoint_completion_target=0.9
+      -c random_page_cost=1.1
+      -c log_min_messages=warning
+
+    # Postgres 18 grava em /var/lib/postgresql/18/docker: o volume vai no diretório pai.
+    volumes:
+      - kangfiscal_postgres_data:/var/lib/postgresql
+
+    # Acesso pelo DataGrip/DBeaver via túnel SSH. Modo host: a porta abre só no nó do banco,
+    # e é o firewall de FORA do servidor (o Cloud Firewall da Hetzner) que a mantém fechada
+    # para a internet — o Docker passa por cima do ufw. Sem esse firewall, apague o bloco.
+    ports:
+      - target: 5432
+        published: 5435
+        protocol: tcp
+        mode: host
+
+    networks:
+      - network_public
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kangfiscal -d kangfiscal"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      # Volume local: o banco não pode ser reagendado em outro nó e subir vazio.
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1536M
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  kangfiscal_postgres_data:
+    external: true
+    name: kangfiscal_postgres_data
+
+networks:
+  network_public:
+    external: true
+    name: network_public

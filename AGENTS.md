@@ -42,6 +42,7 @@ Copie a estrutura de `internal/modules/issuer/`, que é a referência canônica.
 | [docs/00-plano.md](docs/00-plano.md) | O que vem em cada fase, os módulos e a API |
 | [docs/01-referencias.md](docs/01-referencias.md) | Os projetos e as normas usados como base, e o que se pode reaproveitar de cada um |
 | [docs/02-mapa-do-banco.md](docs/02-mapa-do-banco.md) | Cada tabela, de que módulo é e o que guarda |
+| [docs/03-deploy-swarm.md](docs/03-deploy-swarm.md) | As stacks do Portainer (banco, emissor, backup), atualização, rollback e restauração |
 
 ## Comandos
 
