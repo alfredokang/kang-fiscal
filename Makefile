@@ -48,6 +48,9 @@ IMAGE       := $(DOCKER_USER)/kang-fiscal
 SHA         := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 VERSION     ?= $(SHA)
 PLATFORMS   ?= linux/amd64,linux/arm64
+# O driver padrão do Docker Desktop não monta várias plataformas de uma vez; este builder
+# (driver docker-container) monta. É criado na primeira publicação e reaproveitado.
+BUILDER     ?= kangfiscal
 
 docker-login: ## Login no Docker Hub (use um access token, não a senha)
 	docker login -u $(DOCKER_USER)
@@ -58,5 +61,6 @@ image: ## Build local da imagem, sem publicar
 publish: check ## check + build multi-arch + push para o Docker Hub (:latest e :<sha>)
 	@# Alteração não commitada faria a imagem :<sha> conter código que não existe no commit.
 	@git diff --quiet && git diff --cached --quiet || (echo "há alterações não commitadas" >&2; exit 1)
-	docker buildx build --platform $(PLATFORMS) --build-arg VERSION=$(VERSION) \
+	@docker buildx inspect $(BUILDER) >/dev/null 2>&1 || docker buildx create --name $(BUILDER) --driver docker-container >/dev/null
+	docker buildx build --builder $(BUILDER) --platform $(PLATFORMS) --build-arg VERSION=$(VERSION) \
 		-t $(IMAGE):latest -t $(IMAGE):$(SHA) --push .
