@@ -1,6 +1,6 @@
 # Kang Fiscal
 
-**Emissor de NF-e, NFC-e e NFS-e open source, pronto para a reforma tributária (IBS, CBS e IS).**
+**Emissor gratuito de NF-e, NFC-e e NFS-e, pronto para a reforma tributária (IBS, CBS e IS) e para os tributos atuais.**
 
 Feito por **Alfredo Kang** para ajudar empresários e desenvolvedores do Brasil a acelerar
 seus projetos.
@@ -9,8 +9,10 @@ seus projetos.
 ![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8)
 ![Postgres 18](https://img.shields.io/badge/Postgres-18-336791)
 
-> ⚠️ **Em construção — fase F0.** A fundação, o cadastro do emitente e as primeiras peças da
-> biblioteca fiscal estão prontos; a emissão ainda não. Veja o [plano](docs/00-plano.md).
+> **Distribuição:** este repositório é privado. O que é público e gratuito é a imagem
+> `alfredokang/kang-fiscal` no Docker Hub, cuja página é [docs/docker-hub.md](docs/docker-hub.md).
+> Emissão, cancelamento, contingência, recebimento e NFS-e estão prontos e testados contra
+> SEFAZ e Sefin simuladas; falta a validação em homologação real. Veja o [plano](docs/00-plano.md).
 
 ---
 
@@ -21,8 +23,8 @@ seus projetos.
 - **Leve.** Uma imagem de ~20 MB, sem shell, e só o Postgres como dependência.
 - **Pronto para a reforma.** IBS, CBS e Imposto Seletivo desde o primeiro dia, com as
   alíquotas em tabela versionada por vigência — porque elas ainda vão mudar.
-- **Duas formas de usar:** a **API** em Docker, para qualquer linguagem, ou a **biblioteca
-  Go** (`pkg/`), para quem quer embutir a emissão sem subir outro serviço.
+- **Uma API para qualquer linguagem**, numa imagem Docker, com a documentação navegável
+  em `/docs`.
 - **Sem `float64`.** Todo valor fiscal é ponto fixo inteiro. A SEFAZ rejeita por um centavo;
   aqui o centavo fecha.
 - **Nenhuma nota sai duas vezes.** A chave de acesso é gravada antes do envio, e uma queda
@@ -30,8 +32,11 @@ seus projetos.
 
 ## Começando em 1 minuto
 
+Sem o código: siga [docs/docker-hub.md](docs/docker-hub.md), que só usa a imagem.
+
+Com o código (desenvolvimento):
+
 ```bash
-git clone https://github.com/alfredokang/kang-fiscal && cd kang-fiscal
 cp .env.example .env
 # defina ADMIN_TOKEN e SECRETS_ENCRYPTION_KEY no .env (openssl rand -base64 32)
 docker compose --profile full up -d

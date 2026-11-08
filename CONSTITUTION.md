@@ -21,7 +21,7 @@ O teste de integridade é permanente:
 > **Qualquer módulo deve poder ser arrancado deste repositório e virar um serviço
 > independente sem reescrever sua lógica de negócio.**
 
-E um segundo, próprio de projeto open source:
+E um segundo, próprio de um emissor gratuito que roda na casa do empresário:
 
 > **Quem baixa a imagem precisa só de Postgres para emitir.** Cada dependência de
 > infraestrutura a mais (Redis, fila, S3) é uma barreira para o empresário pequeno que

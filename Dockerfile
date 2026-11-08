@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
 FROM gcr.io/distroless/static-debian12:nonroot
 
 LABEL org.opencontainers.image.title="Kang Fiscal" \
-      org.opencontainers.image.description="Emissor de NF-e, NFC-e e NFS-e open source, pronto para IBS, CBS e IS" \
+      org.opencontainers.image.description="Emissor gratuito de NF-e, NFC-e e NFS-e, pronto para IBS, CBS e IS" \
       org.opencontainers.image.authors="Alfredo Kang" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.url="https://hub.docker.com/r/alfredokang/kang-fiscal"

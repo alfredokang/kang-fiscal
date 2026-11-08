@@ -18,7 +18,7 @@ var Version = "dev"
 func Execute() {
 	root := &cobra.Command{
 		Use:     "kang-fiscal",
-		Short:   "Kang Fiscal — emissor de NF-e, NFC-e e NFS-e open source, feito por Alfredo Kang",
+		Short:   "Kang Fiscal — emissor gratuito de NF-e, NFC-e e NFS-e, feito por Alfredo Kang",
 		Version: Version,
 	}
 
