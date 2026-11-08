@@ -30,6 +30,9 @@ Copie a estrutura de `internal/modules/issuer/`, que é a referência canônica.
 6. Registre a migration em `cmd/api/migrate.go`, a tabela em `tableOwners`
    (`internal/sql_boundary_test.go`) e o módulo em `shared/server/server.go`.
 7. Documente a tabela em [docs/02-mapa-do-banco.md](docs/02-mapa-do-banco.md).
+8. **Documente as rotas em `shared/openapi/openapi.yaml`.** O
+   `shared/server/openapi_contract_test.go` quebra o build se uma rota registrada não
+   estiver lá (ou se a especificação citar rota que não existe). Ela é a base dos SDKs.
 
 ## Documentação
 

@@ -242,7 +242,14 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | NFS-e no padrão nacional (`POST /v1/nfse`), com IBS/CBS, sem duplicar nota em timeout | ✅ |
 | Cancelamento da NFS-e, direto ou por análise fiscal (`POST /v1/nfse/{chave}/cancel`) | ✅ |
 | DANFSe v2.0 em PDF (`GET /v1/nfse/{chave}/danfse`), gerado localmente — a API de PDF do governo acabou em 01/07/2026 | ✅ |
-| SDKs (TS, PHP, Python) e OpenAPI | 🔜 F6 |
+| Especificação OpenAPI 3.1 (`/openapi.yaml`) e documentação navegável (`/docs`), conferidas contra as rotas reais a cada build | ✅ |
+| SDKs (TS, PHP, Python) gerados da especificação | 🔜 F6 |
+
+## Documentação da API
+
+Com o Kang Fiscal rodando, abra `http://localhost:8080/docs`. A especificação está em
+`/openapi.yaml` (e em `shared/openapi/openapi.yaml`): dá para gerar cliente em qualquer
+linguagem com o openapi-generator.
 
 ## Arquitetura
 

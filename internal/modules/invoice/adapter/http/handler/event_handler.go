@@ -97,8 +97,11 @@ func writeEvent(w http.ResponseWriter, r *http.Request, e *entity.Event, err err
 
 func toEventResponse(e *entity.Event) response.Event {
 	kind := "correction"
-	if e.Type == nfe.EventCancellation {
+	switch e.Type {
+	case nfe.EventCancellation:
 		kind = "cancellation"
+	case nfe.EventSubstitution:
+		kind = "substitution" // a NFC-e online coberta pela offline (110112)
 	}
 	out := response.Event{ID: e.ID, Type: kind, Code: e.Type, Seq: e.Seq, Status: string(e.Status), CStat: e.CStat,
 		Motive: e.Motive, Protocol: e.Protocol, Text: e.Text, CreatedAt: e.CreatedAt}

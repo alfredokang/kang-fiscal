@@ -1,0 +1,1374 @@
+openapi: 3.1.0
+
+info:
+  title: Kang Fiscal — API
+  version: 0.6.0
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  description: |
+    Emissor open source de NF-e, NFC-e e NFS-e, pronto para a reforma tributária (IBS, CBS e
+    IS) e para os tributos atuais. Feito por Alfredo Kang para ajudar empresários e
+    desenvolvedores do Brasil a acelerar seus projetos.
+
+    ## Autenticação
+
+    `Authorization: Bearer <token>`.
+
+    - **`/v1/admin/...`** usa o `ADMIN_TOKEN` da instalação. É o caminho de quem roda o
+      Kang Fiscal para a própria empresa.
+    - **`/v1/...`** usa uma credencial por tenant (`kf_...`), criada em
+      `POST /v1/admin/credentials`, com escopos `setup`, `nfe:write` e `nfe:read`.
+
+    ## Nota que nunca sai duas vezes
+
+    `POST /v1/nfe` e `POST /v1/nfse` exigem o cabeçalho **`Idempotency-Key`**. Repetir a
+    requisição com a mesma chave devolve a mesma nota, sem novo envio; a mesma chave com outro
+    corpo é recusada (409). Quando a SEFAZ ou a Sefin não respondem, a nota fica `uncertain`
+    (HTTP 202) e é consultada antes de qualquer reenvio — repita a requisição ou deixe o
+    `kang-fiscal worker` resolver.
+
+    ## Convenções
+
+    - Valores monetários, quantidades e alíquotas são **texto decimal** (`"1500.00"`,
+      `"18"`), nunca número de ponto flutuante.
+    - Toda lista é paginada: `limit` até 100 (padrão 20).
+    - Homologação é o padrão; produção é um passo explícito (`/production`).
+
+servers:
+  - url: http://localhost:8080
+    description: Instalação local
+
+security:
+  - bearer: []
+
+tags:
+  - name: Saúde
+  - name: Credenciais
+  - name: Emitentes
+  - name: Tributos
+  - name: NF-e e NFC-e
+  - name: Contingência
+  - name: NFS-e
+  - name: Recebimento
+
+paths:
+  /health:
+    get:
+      tags: [Saúde]
+      summary: O processo está de pé
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/Status" }
+  /ready:
+    get:
+      tags: [Saúde]
+      summary: Pronto para tráfego (o Postgres responde)
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/Status" }
+        "503": { $ref: "#/components/responses/Status" }
+  /metrics:
+    get:
+      tags: [Saúde]
+      summary: Métricas Prometheus
+      security: []
+      responses:
+        "200":
+          description: Formato de exposição do Prometheus
+          content:
+            text/plain: { schema: { type: string } }
+
+  # --- Credenciais (só ADMIN_TOKEN) ---
+  /v1/admin/credentials:
+    post:
+      tags: [Credenciais]
+      summary: Cria uma credencial de tenant
+      description: O `token` só aparece nesta resposta. Guarde-o.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CredentialRequest" }
+      responses:
+        "201":
+          description: Criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Credential" }
+        "422": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [Credenciais]
+      summary: Lista as credenciais de um tenant
+      parameters:
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Credenciais (sem o segredo)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Credential" } }
+  /v1/admin/credentials/{id}:
+    delete:
+      tags: [Credenciais]
+      summary: Revoga uma credencial
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Revogada }
+        "404": { $ref: "#/components/responses/Error" }
+
+  # --- Emitentes ---
+  /v1/admin/issuers:
+    $ref: "#/components/pathItems/IssuerCollection"
+  /v1/issuers:
+    $ref: "#/components/pathItems/IssuerCollection"
+  /v1/admin/issuers/{id}:
+    $ref: "#/components/pathItems/IssuerItem"
+  /v1/issuers/{id}:
+    $ref: "#/components/pathItems/IssuerItem"
+  /v1/admin/issuers/{id}/production:
+    $ref: "#/components/pathItems/IssuerProduction"
+  /v1/issuers/{id}/production:
+    $ref: "#/components/pathItems/IssuerProduction"
+  /v1/admin/issuers/{id}/certificate:
+    $ref: "#/components/pathItems/Certificate"
+  /v1/issuers/{id}/certificate:
+    $ref: "#/components/pathItems/Certificate"
+  /v1/admin/issuers/{id}/series/{model}/{series}:
+    $ref: "#/components/pathItems/Series"
+  /v1/issuers/{id}/series/{model}/{series}:
+    $ref: "#/components/pathItems/Series"
+
+  # --- Tributos ---
+  /v1/admin/tax-profiles:
+    $ref: "#/components/pathItems/TaxProfiles"
+  /v1/tax-profiles:
+    $ref: "#/components/pathItems/TaxProfiles"
+  /v1/admin/tax-profiles/{code}:
+    $ref: "#/components/pathItems/TaxProfile"
+  /v1/tax-profiles/{code}:
+    $ref: "#/components/pathItems/TaxProfile"
+  /v1/admin/tax-rates:
+    $ref: "#/components/pathItems/TaxRatesAdmin"
+  /v1/tax-rates:
+    $ref: "#/components/pathItems/TaxRates"
+  /v1/admin/tax/simulate:
+    $ref: "#/components/pathItems/Simulate"
+  /v1/tax/simulate:
+    $ref: "#/components/pathItems/Simulate"
+
+  # --- NF-e e NFC-e ---
+  /v1/nfe:
+    post:
+      tags: [NF-e e NFC-e]
+      summary: Emite uma NF-e (55) ou NFC-e (65)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Invoice" }
+        "202": { $ref: "#/components/responses/Invoice" }
+        "422": { $ref: "#/components/responses/Invoice" }
+        "502": { $ref: "#/components/responses/Invoice" }
+        "409": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [NF-e e NFC-e]
+      summary: Lista as notas
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Página de notas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Invoice" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+  /v1/nfe/{key}:
+    get:
+      tags: [NF-e e NFC-e]
+      summary: Consulta uma nota
+      parameters:
+        - $ref: "#/components/parameters/Key"
+        - name: sync
+          in: query
+          description: "`sefaz` consulta a SEFAZ antes de responder (para nota incerta)."
+          schema: { type: string, enum: [sefaz] }
+      responses:
+        "200": { $ref: "#/components/responses/Invoice" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/nfe/{key}/xml:
+    get:
+      tags: [NF-e e NFC-e]
+      summary: Baixa o XML (nfeProc quando autorizada)
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200": { $ref: "#/components/responses/XML" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/nfe/{key}/danfe:
+    get:
+      tags: [NF-e e NFC-e]
+      summary: DANFE (A4) ou DANFCE (bobina de 80 mm) em PDF
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200": { $ref: "#/components/responses/PDF" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/nfe/{key}/cancel:
+    post:
+      tags: [NF-e e NFC-e]
+      summary: Cancela a nota (evento 110111)
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [justification]
+              properties:
+                justification: { type: string, minLength: 15, maxLength: 255 }
+      responses:
+        "200": { $ref: "#/components/responses/InvoiceEvent" }
+        "202": { $ref: "#/components/responses/InvoiceEvent" }
+        "422": { $ref: "#/components/responses/InvoiceEvent" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/nfe/{key}/correction:
+    post:
+      tags: [NF-e e NFC-e]
+      summary: Carta de correção (evento 110110)
+      description: O texto substitui todas as cartas anteriores. Traga todas as correções da nota.
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 15, maxLength: 1000 }
+      responses:
+        "200": { $ref: "#/components/responses/InvoiceEvent" }
+        "202": { $ref: "#/components/responses/InvoiceEvent" }
+        "422": { $ref: "#/components/responses/InvoiceEvent" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/nfe/{key}/events:
+    get:
+      tags: [NF-e e NFC-e]
+      summary: Eventos da nota
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200":
+          description: Eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/InvoiceEvent" } }
+  /v1/nfe/events/{id}/xml:
+    get:
+      tags: [NF-e e NFC-e]
+      summary: XML do evento (procEventoNFe)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { $ref: "#/components/responses/XML" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/nfe/void-range:
+    post:
+      tags: [NF-e e NFC-e]
+      summary: Inutiliza uma faixa de números
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoidRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Void" }
+        "202": { $ref: "#/components/responses/Void" }
+        "422": { $ref: "#/components/responses/Void" }
+        "502": { $ref: "#/components/responses/Void" }
+  /v1/nfe/voids:
+    get:
+      tags: [NF-e e NFC-e]
+      summary: Lista as inutilizações
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Página de inutilizações
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Void" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+  /v1/admin/void-sweep:
+    post:
+      tags: [NF-e e NFC-e]
+      summary: Roda agora a varredura de inutilização do worker
+      parameters:
+        - name: older_than_hours
+          in: query
+          schema: { type: integer, minimum: 0, default: 24 }
+      responses:
+        "200":
+          description: Resultado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checked: { type: integer }
+                  voided: { type: integer }
+                  skipped: { type: integer }
+                  errors: { type: array, items: { type: string } }
+
+  # --- Contingência ---
+  /v1/admin/contingency:
+    get:
+      tags: [Contingência]
+      summary: Contingências SVC ativas
+      responses:
+        "200":
+          description: Ativas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Contingency" } }
+    post:
+      tags: [Contingência]
+      summary: Liga a SVC à mão (NF-e)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uf, reason]
+              properties:
+                uf: { type: string, example: SP }
+                model: { type: integer, enum: [55], default: 55 }
+                environment: { $ref: "#/components/schemas/Environment" }
+                reason: { type: string, minLength: 15, maxLength: 256 }
+      responses:
+        "200":
+          description: Ligada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contingency" }
+        "422": { $ref: "#/components/responses/Error" }
+  /v1/admin/contingency/{uf}:
+    delete:
+      tags: [Contingência]
+      summary: Desliga a contingência da UF
+      parameters:
+        - { name: uf, in: path, required: true, schema: { type: string } }
+        - { name: model, in: query, schema: { type: integer, default: 55 } }
+        - { name: environment, in: query, schema: { $ref: "#/components/schemas/Environment" } }
+      responses:
+        "204": { description: Desligada }
+
+  # --- NFS-e ---
+  /v1/nfse:
+    post:
+      tags: [NFS-e]
+      summary: Emite uma NFS-e no padrão nacional
+      description: |
+        A DPS é assinada e gravada antes do envio. Sem resposta, a NFS-e fica `uncertain`
+        e é consultada pelo Id da DPS — nunca reenviada às cegas.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NFSeRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/NFSe" }
+        "202": { $ref: "#/components/responses/NFSe" }
+        "422": { $ref: "#/components/responses/NFSe" }
+        "502": { $ref: "#/components/responses/NFSe" }
+        "409": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [NFS-e]
+      summary: Lista as NFS-e
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Página de NFS-e
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/NFSe" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+  /v1/nfse/{key}:
+    get:
+      tags: [NFS-e]
+      summary: Consulta pela chave de acesso ou pelo Id da DPS
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200": { $ref: "#/components/responses/NFSe" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/nfse/{key}/xml:
+    get:
+      tags: [NFS-e]
+      summary: Baixa o XML da NFS-e (ou a DPS assinada, enquanto não houver nota)
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200": { $ref: "#/components/responses/XML" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/nfse/{key}/danfse:
+    get:
+      tags: [NFS-e]
+      summary: DANFSe v2.0 em PDF
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200": { $ref: "#/components/responses/PDF" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/nfse/{key}/cancel:
+    post:
+      tags: [NFS-e]
+      summary: Cancela a NFS-e (direto ou por análise fiscal)
+      description: |
+        `mode: analysis` pede a análise fiscal do município (e101103), para onde o
+        cancelamento direto é recusado (E0823). A nota segue válida até a decisão.
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, justification]
+              properties:
+                reason:
+                  type: integer
+                  enum: [1, 2, 9]
+                  description: 1 erro na emissão, 2 serviço não prestado, 9 outros
+                justification: { type: string, minLength: 15, maxLength: 255 }
+                mode: { type: string, enum: [direct, analysis], default: direct }
+      responses:
+        "200": { $ref: "#/components/responses/NFSeEvent" }
+        "202": { $ref: "#/components/responses/NFSeEvent" }
+        "422": { $ref: "#/components/responses/NFSeEvent" }
+        "502": { $ref: "#/components/responses/NFSeEvent" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/nfse/{key}/events:
+    get:
+      tags: [NFS-e]
+      summary: Eventos da NFS-e
+      parameters: [{ $ref: "#/components/parameters/Key" }]
+      responses:
+        "200":
+          description: Eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/NFSeEvent" } }
+
+  # --- Recebimento ---
+  /v1/dfe/sync:
+    post:
+      tags: [Recebimento]
+      summary: Busca as notas emitidas contra o CNPJ (DistribuiçãoDF-e)
+      description: A SEFAZ bloqueia por uma hora quem consulta sem documento novo; o Kang Fiscal recusa antes (429).
+      parameters: [{ $ref: "#/components/parameters/IssuerID" }]
+      responses:
+        "200":
+          description: Sincronizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { type: integer }
+                  cstat: { type: integer }
+                  motive: { type: string }
+                  next_query_at: { type: string, format: date-time }
+        "429":
+          description: Cedo demais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, example: TOO_SOON }
+                  next_query_at: { type: string, format: date-time }
+  /v1/dfe/documents:
+    get:
+      tags: [Recebimento]
+      summary: Notas e eventos recebidos
+      parameters:
+        - $ref: "#/components/parameters/IssuerID"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Página de documentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/ReceivedDocument" } }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+  /v1/dfe/documents/{id}/xml:
+    get:
+      tags: [Recebimento]
+      summary: XML do documento recebido
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { $ref: "#/components/responses/XML" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/dfe/documents/{id}/manifest:
+    post:
+      tags: [Recebimento]
+      summary: Manifestação do destinatário
+      description: "`awareness` (ciência) libera o XML completo, que é baixado na hora."
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type: { type: string, enum: [awareness, confirmation, unknown, not_performed] }
+                justification: { type: string, description: Obrigatória em not_performed (15 a 255) }
+      responses:
+        "200": { $ref: "#/components/responses/SefazResult" }
+        "422": { $ref: "#/components/responses/SefazResult" }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: ADMIN_TOKEN nas rotas /v1/admin; credencial kf_... nas demais.
+
+  parameters:
+    ID:
+      { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    Key:
+      name: key
+      in: path
+      required: true
+      description: Chave de acesso (44 posições na NF-e, 50 na NFS-e) ou Id da DPS
+      schema: { type: string }
+    IssuerID:
+      { name: issuer_id, in: query, required: true, schema: { type: string, format: uuid } }
+    Page:
+      { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    Limit:
+      { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Até 80 caracteres. É ela que impede a mesma nota de sair duas vezes.
+      schema: { type: string, maxLength: 80 }
+
+  responses:
+    Status:
+      description: Situação
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string }
+    Error:
+      description: Erro
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    XML:
+      description: Documento XML
+      content:
+        application/xml: { schema: { type: string } }
+    PDF:
+      description: Documento PDF
+      content:
+        application/pdf: { schema: { type: string, format: binary } }
+    Invoice:
+      description: A nota no estado em que ficou (201 autorizada, 202 incerta, 422 rejeitada ou denegada, 502 não enviada)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Invoice" }
+    InvoiceEvent:
+      description: O evento no estado em que ficou
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/InvoiceEvent" }
+    Void:
+      description: A inutilização
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Void" }
+    NFSe:
+      description: A NFS-e no estado em que ficou (201 autorizada, 202 incerta, 422 rejeitada, 502 não enviada)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/NFSe" }
+    NFSeEvent:
+      description: O pedido de evento no estado em que ficou (200 registrado, 202 incerto, 422 recusado, 502 não enviado)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/NFSeEvent" }
+    SefazResult:
+      description: Resposta da SEFAZ
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              cstat: { type: integer }
+              motive: { type: string }
+              protocol: { type: string }
+              hint: { type: string }
+
+  pathItems:
+    IssuerCollection:
+      post:
+        tags: [Emitentes]
+        summary: Cadastra um emitente (nasce em homologação)
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IssuerRequest" }
+        responses:
+          "201":
+            description: Cadastrado
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Issuer" }
+          "409": { $ref: "#/components/responses/Error" }
+          "422": { $ref: "#/components/responses/Error" }
+      get:
+        tags: [Emitentes]
+        summary: Lista os emitentes
+        parameters:
+          - $ref: "#/components/parameters/Page"
+          - $ref: "#/components/parameters/Limit"
+        responses:
+          "200":
+            description: Página de emitentes
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    data: { type: array, items: { $ref: "#/components/schemas/Issuer" } }
+                    pagination: { $ref: "#/components/schemas/Pagination" }
+    IssuerItem:
+      get:
+        tags: [Emitentes]
+        summary: Consulta o emitente
+        parameters: [{ $ref: "#/components/parameters/ID" }]
+        responses:
+          "200":
+            description: Emitente
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Issuer" }
+          "404": { $ref: "#/components/responses/Error" }
+      put:
+        tags: [Emitentes]
+        summary: Corrige os dados fiscais (o CNPJ não muda)
+        parameters: [{ $ref: "#/components/parameters/ID" }]
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FiscalData" }
+        responses:
+          "200":
+            description: Atualizado
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Issuer" }
+          "422": { $ref: "#/components/responses/Error" }
+    IssuerProduction:
+      post:
+        tags: [Emitentes]
+        summary: Passa o emitente para produção (sem volta)
+        parameters: [{ $ref: "#/components/parameters/ID" }]
+        responses:
+          "200":
+            description: Em produção
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Issuer" }
+          "409": { $ref: "#/components/responses/Error" }
+    Certificate:
+      put:
+        tags: [Emitentes]
+        summary: Envia o certificado A1 (PFX), cifrado em repouso
+        parameters: [{ $ref: "#/components/parameters/ID" }]
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pfx_base64, password]
+                properties:
+                  pfx_base64: { type: string, contentEncoding: base64 }
+                  password: { type: string, format: password }
+        responses:
+          "200":
+            description: Instalado
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Certificate" }
+          "422": { $ref: "#/components/responses/Error" }
+      get:
+        tags: [Emitentes]
+        summary: Dados públicos do certificado (validade, titular)
+        parameters: [{ $ref: "#/components/parameters/ID" }]
+        responses:
+          "200":
+            description: Certificado
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Certificate" }
+          "404": { $ref: "#/components/responses/Error" }
+      delete:
+        tags: [Emitentes]
+        summary: Remove o certificado
+        parameters: [{ $ref: "#/components/parameters/ID" }]
+        responses:
+          "204": { description: Removido }
+    Series:
+      put:
+        tags: [Emitentes]
+        summary: Define o próximo número da série (só para a frente)
+        description: Para quem migra de outro emissor e precisa continuar a numeração.
+        parameters:
+          - $ref: "#/components/parameters/ID"
+          - { name: model, in: path, required: true, schema: { type: integer, enum: [55, 65, 99] } }
+          - { name: series, in: path, required: true, schema: { type: integer } }
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [environment, next_number]
+                properties:
+                  environment: { $ref: "#/components/schemas/Environment" }
+                  next_number: { type: integer, minimum: 1 }
+        responses:
+          "200":
+            description: Definido
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    model: { type: integer }
+                    series: { type: integer }
+                    environment: { type: string }
+                    next_number: { type: integer }
+          "409": { $ref: "#/components/responses/Error" }
+    TaxProfiles:
+      get:
+        tags: [Tributos]
+        summary: Lista os perfis tributários
+        parameters:
+          - $ref: "#/components/parameters/Page"
+          - $ref: "#/components/parameters/Limit"
+        responses:
+          "200":
+            description: Página de perfis
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    data: { type: array, items: { $ref: "#/components/schemas/TaxProfile" } }
+                    pagination: { $ref: "#/components/schemas/Pagination" }
+    TaxProfile:
+      get:
+        tags: [Tributos]
+        summary: Consulta um perfil tributário
+        parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+        responses:
+          "200":
+            description: Perfil
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/TaxProfile" }
+          "404": { $ref: "#/components/responses/Error" }
+      put:
+        tags: [Tributos]
+        summary: Cria ou substitui um perfil tributário
+        description: O perfil diz como cada item é tributado — tributos atuais e IBS/CBS juntos.
+        parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, rules]
+                properties:
+                  name: { type: string }
+                  rules: { $ref: "#/components/schemas/TaxRules" }
+        responses:
+          "200":
+            description: Gravado
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/TaxProfile" }
+          "422": { $ref: "#/components/responses/Error" }
+    TaxRates:
+      get:
+        tags: [Tributos]
+        summary: Lista as alíquotas de IBS e CBS com vigência
+        parameters:
+          - $ref: "#/components/parameters/Page"
+          - $ref: "#/components/parameters/Limit"
+        responses:
+          "200":
+            description: Página de alíquotas
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    data: { type: array, items: { $ref: "#/components/schemas/TaxRate" } }
+                    pagination: { $ref: "#/components/schemas/Pagination" }
+    TaxRatesAdmin:
+      get:
+        tags: [Tributos]
+        summary: Lista as alíquotas de IBS e CBS com vigência
+        parameters:
+          - $ref: "#/components/parameters/Page"
+          - $ref: "#/components/parameters/Limit"
+        responses:
+          "200":
+            description: Página de alíquotas
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    data: { type: array, items: { $ref: "#/components/schemas/TaxRate" } }
+                    pagination: { $ref: "#/components/schemas/Pagination" }
+      post:
+        tags: [Tributos]
+        summary: Cadastra uma alíquota de IBS ou CBS com vigência
+        description: Alíquotas são dado versionado. Vigências do mesmo escopo não se sobrepõem.
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaxRateRequest" }
+        responses:
+          "201":
+            description: Cadastrada
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/TaxRate" }
+          "409": { $ref: "#/components/responses/Error" }
+          "422": { $ref: "#/components/responses/Error" }
+    Simulate:
+      post:
+        tags: [Tributos]
+        summary: Simula os tributos de um carrinho
+        description: Mesma conta da emissão, sem emitir — para o carrinho mostrar o que vai para a nota.
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SimulateRequest" }
+        responses:
+          "200":
+            description: Tributos calculados
+            content:
+              application/json:
+                schema: { $ref: "#/components/schemas/Simulation" }
+          "422": { $ref: "#/components/responses/Error" }
+
+  schemas:
+    Decimal:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: Valor decimal em texto, nunca ponto flutuante
+      example: "1500.00"
+    Environment:
+      type: string
+      enum: [homologation, production]
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string, description: Mensagem em português }
+        code: { type: string, example: VALIDATION }
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer, format: int64 }
+        total_pages: { type: integer }
+        has_next: { type: boolean }
+        has_prev: { type: boolean }
+
+    CredentialRequest:
+      type: object
+      required: [tenant_id, name, scopes]
+      properties:
+        tenant_id: { type: string, maxLength: 64 }
+        name: { type: string }
+        scopes:
+          type: array
+          items: { type: string, enum: [setup, "nfe:write", "nfe:read"] }
+    Credential:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string }
+        name: { type: string }
+        prefix: { type: string }
+        scopes: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+        token: { type: string, description: Só na criação }
+
+    Address:
+      type: object
+      properties:
+        street: { type: string }
+        number: { type: string }
+        complement: { type: string }
+        district: { type: string }
+        city_code: { type: string, description: Código IBGE do município (7 dígitos) }
+        city_name: { type: string }
+        uf: { type: string }
+        zip_code: { type: string }
+        phone: { type: string }
+    FiscalData:
+      type: object
+      properties:
+        legal_name: { type: string }
+        trade_name: { type: string }
+        state_registration: { type: string }
+        municipal_registration: { type: string, description: Inscrição municipal (obrigatória para a NFS-e) }
+        cnae: { type: string }
+        tax_regime:
+          type: integer
+          enum: [1, 2, 3, 4]
+          description: CRT — 1 Simples Nacional, 2 Simples com excesso de sublimite, 3 regime normal, 4 MEI
+        address: { $ref: "#/components/schemas/Address" }
+    IssuerRequest:
+      allOf:
+        - type: object
+          required: [cnpj]
+          properties:
+            cnpj: { type: string, description: CNPJ numérico ou alfanumérico }
+        - $ref: "#/components/schemas/FiscalData"
+    Issuer:
+      allOf:
+        - $ref: "#/components/schemas/FiscalData"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            cnpj: { type: string }
+            environment: { $ref: "#/components/schemas/Environment" }
+            can_issue: { type: boolean }
+            missing: { type: array, items: { type: string }, description: O que falta para emitir }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+    Certificate:
+      type: object
+      properties:
+        issuer_id: { type: string, format: uuid }
+        holder_name: { type: string }
+        cnpj: { type: string }
+        ca_name: { type: string }
+        serial: { type: string }
+        fingerprint_sha256: { type: string }
+        not_before: { type: string, format: date-time }
+        not_after: { type: string, format: date-time }
+        days_left: { type: integer }
+        expiring_soon: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    TaxRules:
+      type: object
+      properties:
+        cfop_internal: { type: string, example: "5102" }
+        cfop_interstate: { type: string, example: "6102" }
+        icms:
+          type: object
+          properties:
+            code: { type: string, description: CST (regime normal) ou CSOSN (Simples) }
+            rate: { $ref: "#/components/schemas/Decimal" }
+            base_reduction: { $ref: "#/components/schemas/Decimal" }
+            fcp_rate: { $ref: "#/components/schemas/Decimal" }
+            simples_credit_rate: { $ref: "#/components/schemas/Decimal" }
+        pis: { $ref: "#/components/schemas/PisCofinsRule" }
+        cofins: { $ref: "#/components/schemas/PisCofinsRule" }
+        ipi:
+          type: object
+          properties:
+            cst: { type: string }
+            rate: { $ref: "#/components/schemas/Decimal" }
+            legal_code: { type: string }
+        ibs_cbs:
+          type: object
+          properties:
+            cst: { type: string, example: "000" }
+            class_trib: { type: string, example: "000001" }
+            rate_reduction: { $ref: "#/components/schemas/Decimal" }
+            no_tax: { type: boolean }
+        exclude_icms_from_pis_base: { type: boolean }
+    PisCofinsRule:
+      type: object
+      properties:
+        cst: { type: string }
+        rate: { $ref: "#/components/schemas/Decimal" }
+    TaxProfile:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        rules: { $ref: "#/components/schemas/TaxRules" }
+        updated_at: { type: string, format: date-time }
+    TaxRateRequest:
+      type: object
+      required: [kind, value, valid_from, source]
+      properties:
+        kind: { type: string, enum: [cbs, ibs_uf, ibs_mun] }
+        uf: { type: string }
+        city_code: { type: string }
+        value: { $ref: "#/components/schemas/Decimal" }
+        valid_from: { type: string, format: date }
+        valid_to: { type: string, format: date }
+        source: { type: string, description: Lei ou ato que fixou a alíquota }
+    TaxRate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        uf: { type: string }
+        city_code: { type: string }
+        value: { $ref: "#/components/schemas/Decimal" }
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date }
+        source: { type: string }
+    SimulateRequest:
+      type: object
+      required: [uf, items]
+      properties:
+        date: { type: string, format: date, description: Vazio = hoje }
+        uf: { type: string }
+        city_code: { type: string }
+        interstate: { type: boolean }
+        items:
+          type: array
+          items:
+            type: object
+            required: [profile, quantity, unit_price]
+            properties:
+              profile: { type: string }
+              origin: { type: integer }
+              quantity: { $ref: "#/components/schemas/Decimal" }
+              unit_price: { $ref: "#/components/schemas/Decimal" }
+              discount: { $ref: "#/components/schemas/Decimal" }
+              freight: { $ref: "#/components/schemas/Decimal" }
+              insurance: { $ref: "#/components/schemas/Decimal" }
+              other: { $ref: "#/components/schemas/Decimal" }
+    Tax:
+      type: object
+      properties:
+        code: { type: string }
+        base: { $ref: "#/components/schemas/Decimal" }
+        rate: { $ref: "#/components/schemas/Decimal" }
+        value: { $ref: "#/components/schemas/Decimal" }
+    Simulation:
+      type: object
+      properties:
+        rates:
+          type: object
+          properties:
+            cbs: { $ref: "#/components/schemas/Decimal" }
+            ibs_uf: { $ref: "#/components/schemas/Decimal" }
+            ibs_mun: { $ref: "#/components/schemas/Decimal" }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              cfop: { type: string }
+              v_prod: { $ref: "#/components/schemas/Decimal" }
+              icms: { $ref: "#/components/schemas/Tax" }
+              pis: { $ref: "#/components/schemas/Tax" }
+              cofins: { $ref: "#/components/schemas/Tax" }
+              ipi: { $ref: "#/components/schemas/Tax" }
+              ibs_cbs:
+                type: object
+                properties:
+                  cst: { type: string }
+                  class_trib: { type: string }
+                  base: { $ref: "#/components/schemas/Decimal" }
+                  ibs_uf: { $ref: "#/components/schemas/Tax" }
+                  ibs_mun: { $ref: "#/components/schemas/Tax" }
+                  cbs: { $ref: "#/components/schemas/Tax" }
+                  ibs: { $ref: "#/components/schemas/Decimal" }
+        totals:
+          type: object
+          properties:
+            v_prod: { $ref: "#/components/schemas/Decimal" }
+            v_desc: { $ref: "#/components/schemas/Decimal" }
+            v_icms: { $ref: "#/components/schemas/Decimal" }
+            v_ipi: { $ref: "#/components/schemas/Decimal" }
+            v_pis: { $ref: "#/components/schemas/Decimal" }
+            v_cofins: { $ref: "#/components/schemas/Decimal" }
+            v_nf: { $ref: "#/components/schemas/Decimal" }
+            v_ibs: { $ref: "#/components/schemas/Decimal" }
+            v_cbs: { $ref: "#/components/schemas/Decimal" }
+            v_nf_tot: { $ref: "#/components/schemas/Decimal" }
+
+    InvoiceRequest:
+      type: object
+      required: [issuer_id, nature_of_operation, items, payments]
+      properties:
+        issuer_id: { type: string, format: uuid }
+        model: { type: integer, enum: [55, 65], default: 55 }
+        series: { type: integer, default: 1 }
+        nature_of_operation: { type: string, example: VENDA DE MERCADORIA }
+        purpose: { type: integer, default: 1, description: finNFe }
+        presence: { type: integer, default: 2, description: indPres }
+        final_consumer: { type: boolean }
+        recipient:
+          type: object
+          description: Opcional na NFC-e (consumidor não identificado)
+          properties:
+            cnpj: { type: string }
+            cpf: { type: string }
+            name: { type: string }
+            ie: { type: string }
+            ie_indicator: { type: integer, enum: [1, 2, 9] }
+            email: { type: string }
+            address: { $ref: "#/components/schemas/Address" }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 990
+          items:
+            type: object
+            required: [code, description, ncm, unit, quantity, unit_price, tax_profile]
+            properties:
+              code: { type: string }
+              description: { type: string }
+              ncm: { type: string }
+              cest: { type: string }
+              gtin: { type: string }
+              unit: { type: string }
+              quantity: { $ref: "#/components/schemas/Decimal" }
+              unit_price: { $ref: "#/components/schemas/Decimal" }
+              discount: { $ref: "#/components/schemas/Decimal" }
+              freight: { $ref: "#/components/schemas/Decimal" }
+              insurance: { $ref: "#/components/schemas/Decimal" }
+              other: { $ref: "#/components/schemas/Decimal" }
+              origin: { type: integer, default: 0 }
+              tax_profile: { type: string }
+        payments:
+          type: array
+          items:
+            type: object
+            required: [method, amount]
+            properties:
+              method: { type: string, description: "tPag: 01 dinheiro, 03 crédito, 04 débito, 17 PIX..." }
+              amount: { $ref: "#/components/schemas/Decimal" }
+        freight_mode: { type: integer, default: 9 }
+        additional_info: { type: string }
+    Invoice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        access_key: { type: string }
+        model: { type: integer }
+        series: { type: integer }
+        number: { type: integer }
+        environment: { $ref: "#/components/schemas/Environment" }
+        status:
+          type: string
+          enum: [signed, authorized, denied, rejected, uncertain, not_sent, canceled, offline]
+        cstat: { type: integer }
+        motive: { type: string }
+        hint: { type: string, description: Dica de correção para o código da SEFAZ }
+        protocol: { type: string }
+        total: { $ref: "#/components/schemas/Decimal" }
+        xml_sha256: { type: string }
+        created_at: { type: string, format: date-time }
+        authorized_at: { type: string, format: date-time }
+    InvoiceEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [cancellation, correction, substitution] }
+        code: { type: string }
+        seq: { type: integer }
+        status: { type: string, enum: [signed, registered, rejected, uncertain, not_sent] }
+        cstat: { type: integer }
+        motive: { type: string }
+        hint: { type: string }
+        protocol: { type: string }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
+    VoidRequest:
+      type: object
+      required: [issuer_id, model, series, from, to, justification]
+      properties:
+        issuer_id: { type: string, format: uuid }
+        model: { type: integer, enum: [55, 65] }
+        series: { type: integer }
+        from: { type: integer }
+        to: { type: integer }
+        justification: { type: string, minLength: 15, maxLength: 255 }
+    Void:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        model: { type: integer }
+        series: { type: integer }
+        from: { type: integer }
+        to: { type: integer }
+        status: { type: string, enum: [signed, voided, rejected, uncertain, not_sent] }
+        cstat: { type: integer }
+        motive: { type: string }
+        protocol: { type: string }
+        justification: { type: string }
+        created_at: { type: string, format: date-time }
+    Contingency:
+      type: object
+      properties:
+        uf: { type: string }
+        model: { type: integer }
+        environment: { type: string }
+        kind: { type: string, enum: [SVCAN, SVCRS] }
+        reason: { type: string }
+        started_at: { type: string, format: date-time }
+
+    NFSeRequest:
+      type: object
+      required: [issuer_id, service, amount]
+      properties:
+        issuer_id: { type: string, format: uuid }
+        series: { type: integer, default: 1 }
+        competence: { type: string, format: date, description: Vazio = hoje }
+        service:
+          type: object
+          required: [national_code, description]
+          properties:
+            national_code: { type: string, description: cTribNac, 6 dígitos (LC 116), example: "010701" }
+            municipal_code: { type: string }
+            nbs: { type: string }
+            description: { type: string }
+            city_code: { type: string, description: Onde foi prestado; vazio = município do prestador }
+        amount: { $ref: "#/components/schemas/Decimal" }
+        unconditional_discount: { $ref: "#/components/schemas/Decimal" }
+        iss:
+          type: object
+          properties:
+            taxation: { type: integer, enum: [1, 2, 3, 4], default: 1, description: 1 tributável, 2 imunidade, 3 exportação, 4 não incidência }
+            retention: { type: integer, enum: [1, 2, 3], default: 1, description: 1 não retido, 2 pelo tomador, 3 pelo intermediário }
+            rate: { $ref: "#/components/schemas/Decimal" }
+        pis_cofins_cst: { type: string }
+        simples_tax_percent:
+          allOf: [{ $ref: "#/components/schemas/Decimal" }]
+          description: Obrigatório no Simples Nacional (ME/EPP)
+        recipient:
+          type: object
+          properties:
+            cnpj: { type: string }
+            cpf: { type: string }
+            name: { type: string }
+            email: { type: string }
+            phone: { type: string }
+            street: { type: string }
+            number: { type: string }
+            district: { type: string }
+            complement: { type: string }
+            city_code: { type: string }
+            zip_code: { type: string }
+        ibs_cbs:
+          type: object
+          description: Só a classificação; quem calcula IBS e CBS é o Sistema Nacional
+          properties:
+            cst: { type: string, example: "000" }
+            class_trib: { type: string, example: "000001" }
+            final_consumer: { type: boolean }
+            operation_code: { type: string, description: cIndOp }
+    NFSe:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dps_id: { type: string }
+        access_key: { type: string }
+        nfse_number: { type: string }
+        series: { type: integer }
+        dps_number: { type: integer }
+        environment: { $ref: "#/components/schemas/Environment" }
+        status: { type: string, enum: [signed, authorized, rejected, uncertain, not_sent, canceled] }
+        cancel_state: { type: string, enum: [analysis, denied], description: Andamento da análise fiscal }
+        error_code: { type: string, description: E-code do Sistema Nacional }
+        message: { type: string }
+        total: { $ref: "#/components/schemas/Decimal" }
+        xml_sha256: { type: string }
+        created_at: { type: string, format: date-time }
+    NFSeEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: ["101101", "101103"] }
+        reason: { type: integer }
+        justification: { type: string }
+        status: { type: string, enum: [signed, registered, rejected, uncertain, not_sent] }
+        error_code: { type: string }
+        message: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ReceivedDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nsu: { type: integer, format: int64 }
+        kind: { type: string, enum: [summary, full, event_summary, event] }
+        access_key: { type: string }
+        emitter_document: { type: string }
+        emitter_name: { type: string }
+        total: { $ref: "#/components/schemas/Decimal" }
+        issued_at: { type: string }
+        situation: { type: string }
+        manifestation: { type: string }
+        received_at: { type: string, format: date-time }

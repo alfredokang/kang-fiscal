@@ -35,6 +35,7 @@ import (
 	"github.com/alfredokang/kang-fiscal/shared/helpers"
 	"github.com/alfredokang/kang-fiscal/shared/logger"
 	"github.com/alfredokang/kang-fiscal/shared/middleware"
+	"github.com/alfredokang/kang-fiscal/shared/openapi"
 	"github.com/alfredokang/kang-fiscal/shared/secretbox"
 )
 
@@ -103,6 +104,7 @@ func (s *Server) routes() chi.Router {
 	})
 	r.Get("/ready", s.ready)
 	r.Handle("/metrics", promhttp.Handler())
+	openapi.Register(r)
 
 	credentialModule := credential.NewModule(s.db, config.Env.CredentialPepper)
 	issuerModule := issuer.NewModule(s.db)
