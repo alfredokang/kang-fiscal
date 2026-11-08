@@ -45,6 +45,16 @@ type NumberKey struct {
 type NumberReserver interface {
 	ReserveNumber(ctx context.Context, key NumberKey, documentRef string) (reservationRef string, number int, err error)
 	MarkNumberUsed(ctx context.Context, tenantID, reservationRef string) error
+	MarkNumberVoided(ctx context.Context, tenantID, reservationRef string) error
+	// PendingNumbers lista os números reservados há mais que o corte e ainda abertos.
+	PendingNumbers(ctx context.Context, before time.Time, limit int) ([]PendingNumber, error)
+}
+
+// PendingNumber é um número reservado e ainda sem destino.
+type PendingNumber struct {
+	ReservationRef, DocumentRef string
+	Key                         NumberKey
+	Number                      int
 }
 
 // SefazGateway fala com a autorizadora usando o certificado do emitente.
@@ -52,6 +62,14 @@ type SefazGateway interface {
 	Authorize(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, batchID int64, signed []byte) (sefaz.AuthorizeResult, error)
 	Query(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, key string) (sefaz.QueryResult, error)
 	SendEvent(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, batchID int64, signed []byte) (sefaz.EventResult, error)
+	VoidRange(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, signed []byte) (sefaz.VoidResult, error)
+}
+
+// VoidRepository guarda as inutilizações.
+type VoidRepository interface {
+	CreateVoid(ctx context.Context, v *entity.Void) error
+	UpdateVoid(ctx context.Context, v *entity.Void) error
+	ListVoids(ctx context.Context, tenantID string, page pagination.Params) ([]*entity.Void, int64, error)
 }
 
 // EventRepository guarda os eventos das notas.
@@ -72,5 +90,8 @@ type InvoiceRepository interface {
 	Update(ctx context.Context, inv *entity.Invoice) error
 	FindByIdempotencyKey(ctx context.Context, tenantID, key string) (*entity.Invoice, error)
 	FindByAccessKey(ctx context.Context, tenantID, accessKey string) (*entity.Invoice, error)
+	FindByID(ctx context.Context, tenantID, id string) (*entity.Invoice, error)
+	// InRange lista as notas da série com número na faixa (no máximo a faixa inteira).
+	InRange(ctx context.Context, key NumberKey, from, to int) ([]*entity.Invoice, error)
 	List(ctx context.Context, tenantID string, page pagination.Params) ([]*entity.Invoice, int64, error)
 }

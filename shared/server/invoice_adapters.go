@@ -89,3 +89,21 @@ func (a invoiceNumberAdapter) ReserveNumber(ctx context.Context, k invoiceout.Nu
 func (a invoiceNumberAdapter) MarkNumberUsed(ctx context.Context, tenantID, reservationRef string) error {
 	return a.numbers.MarkUsed(ctx, tenantID, reservationRef)
 }
+
+func (a invoiceNumberAdapter) MarkNumberVoided(ctx context.Context, tenantID, reservationRef string) error {
+	return a.numbers.MarkVoided(ctx, tenantID, reservationRef)
+}
+
+func (a invoiceNumberAdapter) PendingNumbers(ctx context.Context, before time.Time, limit int) ([]invoiceout.PendingNumber, error) {
+	rs, err := a.numbers.PendingVoid(ctx, a.numbers.Now().Sub(before), limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]invoiceout.PendingNumber, 0, len(rs))
+	for _, r := range rs {
+		out = append(out, invoiceout.PendingNumber{ReservationRef: r.ID, DocumentRef: r.DocumentRef, Number: r.Number,
+			Key: invoiceout.NumberKey{TenantID: r.Key.TenantID, IssuerRef: r.Key.IssuerRef, Environment: r.Key.Environment,
+				Model: r.Key.Model, Series: r.Key.Series}})
+	}
+	return out, nil
+}

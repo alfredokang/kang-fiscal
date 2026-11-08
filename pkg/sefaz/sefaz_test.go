@@ -215,3 +215,17 @@ func TestEventoRegistrado(t *testing.T) {
 		t.Errorf("evento: %+v %v", res, err)
 	}
 }
+
+func TestInutilizacaoHomologada(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><nfeResultMsg><retInutNFe versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe"><infInut><tpAmb>2</tpAmb><verAplic>SP</verAplic><cStat>102</cStat><xMotivo>Inutilizacao de numero homologado</xMotivo><cUF>35</cUF><dhRecbto>2026-11-08T12:00:00-03:00</dhRecbto><nProt>135260000000555</nProt></infInut></retInutNFe></nfeResultMsg></soap:Body></soap:Envelope>`)
+	}))
+	defer srv.Close()
+	table, _ := sefaz.DefaultTable()
+	table.Override(sefaz.NFe, "SP", sefaz.Homologation, sefaz.ServiceVoidRange, sefaz.Endpoint{URL: srv.URL, Operation: "NFeInutilizacao4", Method: "nfeInutilizacaoNF"})
+	c, _ := sefaz.NewClient(sefaz.Config{Table: table, HTTPClient: srv.Client()})
+	res, err := c.VoidRange(context.Background(), sp, []byte(`<inutNFe/>`))
+	if err != nil || !res.Voided() || res.Protocol != "135260000000555" || !strings.HasPrefix(string(res.RetInut), "<retInutNFe") {
+		t.Errorf("inutilização: %+v %v", res, err)
+	}
+}

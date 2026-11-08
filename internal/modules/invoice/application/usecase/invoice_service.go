@@ -27,6 +27,7 @@ import (
 type Deps struct {
 	Repo     output.InvoiceRepository
 	Events   output.EventRepository
+	Voids    output.VoidRepository
 	Issuers  output.IssuerReader
 	Signers  output.SignerProvider
 	Profiles output.TaxProfiles

@@ -30,6 +30,7 @@ type fakeSefaz struct {
 	// event devolve o resultado do evento; nil = registra com 135.
 	event      func(signed []byte) (sefaz.EventResult, error)
 	eventCalls atomic.Int32
+	voidCalls  atomic.Int32
 }
 
 func (f *fakeSefaz) SendEvent(_ context.Context, _ *certificate.Certificate, _ sefaz.Target, _ int64, signed []byte) (sefaz.EventResult, error) {
@@ -41,6 +42,15 @@ func (f *fakeSefaz) SendEvent(_ context.Context, _ *certificate.Certificate, _ s
 		return f.event(signed)
 	}
 	return registered(), nil
+}
+
+func (f *fakeSefaz) VoidRange(_ context.Context, _ *certificate.Certificate, _ sefaz.Target, signed []byte) (sefaz.VoidResult, error) {
+	f.voidCalls.Add(1)
+	if _, err := xmldsig.Verify(signed); err != nil {
+		return sefaz.VoidResult{CStat: 297, Motive: "Rejeição: Assinatura difere do calculado"}, nil
+	}
+	return sefaz.VoidResult{CStat: 102, Motive: "Inutilizacao de numero homologado", Protocol: "135260000000555",
+		RetInut: []byte(`<retInutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><infInut><tpAmb>2</tpAmb><verAplic>FAKE</verAplic><cStat>102</cStat><xMotivo>Inutilizacao de numero homologado</xMotivo><cUF>35</cUF><dhRecbto>2026-11-08T12:00:00-03:00</dhRecbto><nProt>135260000000555</nProt></infInut></retInutNFe>`)}, nil
 }
 
 func registered() sefaz.EventResult {

@@ -103,11 +103,14 @@ func MustValidateSchema(t testing.TB, doc []byte, schema string) {
 }
 
 // SignEvent assina o infEvento com o certificado de teste.
-func SignEvent(t testing.TB, doc []byte) []byte {
+func SignEvent(t testing.TB, doc []byte) []byte { return SignTag(t, doc, "infEvento") }
+
+// SignTag assina o elemento dado com o certificado de teste.
+func SignTag(t testing.TB, doc []byte, tag string) []byte {
 	t.Helper()
 	pfx, _ := certificate.TestPFX("CAFE EXEMPLO LTDA", CNPJ, "s", time.Now().Add(time.Hour))
 	cert, _ := certificate.Load(pfx, "s")
-	out, err := xmldsig.Sign(doc, "infEvento", cert)
+	out, err := xmldsig.Sign(doc, tag, cert)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -42,7 +42,7 @@ webhook (`invoice.split_data`).
 | `issuer` | Emitente: CNPJ, IE, CRT, endereço fiscal, ambiente | ✅ F0 |
 | `credential` | Credenciais de API por tenant (HMAC com pepper, escopos), mostradas uma única vez | F1 |
 | `certificate` | A1 `.pfx` cifrado em repouso, raiz do CNPJ conferida, segredo do antigo apagado na troca, nunca devolvido | ✅ F1 |
-| `numbering` | Série e número com `FOR UPDATE` (50 reservas simultâneas sem buraco nem repetição), homologação e produção separadas, ajuste para quem migra sem poder voltar, lista de buracos a inutilizar | ✅ F1 |
+| `numbering` | (inutilização automática pelo worker do `invoice`: rejeitada, não enviada e reserva sem nota; incerta é consultada antes e nunca inutilizada) Série e número com `FOR UPDATE` (50 reservas simultâneas sem buraco nem repetição), homologação e produção separadas, ajuste para quem migra sem poder voltar, lista de buracos a inutilizar | ✅ F1 |
 | `taxrule` | Perfis tributários do tenant, alíquotas de IBS/CBS por vigência e local (só 2026 semeado; sem alíquota, a emissão para), `POST /v1/admin/tax/simulate` | ✅ F1 |
 | `invoice` | `POST /v1/nfe` (NF-e 55): Idempotency-Key, número, tributos pelo perfil, XML assinado e chave gravados antes do envio, consulta pela chave quando incerto, duplicidade tratada como consulta, nfeProc imutável com hash. Cancelamento e carta de correção com procEventoNFe, reenvio seguro (573 = registrado). Faltam: NFC-e e DANFE | ✅ F1 |
 | `contingency` | Status por UF, SVC-AN/SVC-RS automático, EPEC, NFC-e offline | F3 |

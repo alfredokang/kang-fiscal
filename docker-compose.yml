@@ -57,5 +57,22 @@ services:
     restart: unless-stopped
     profiles: ["full"]
 
+  # Inutiliza os números que ficaram sem nota e concilia as notas sem resposta. Pode haver
+  # mais de uma réplica: um advisory lock no Postgres garante uma varredura por vez.
+  worker:
+    image: alfredokang/kang-fiscal:${IMAGE_TAG:-latest}
+    command: ["worker"]
+    env_file: [{ path: .env, required: false }]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-kangfiscal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kangfiscal}
+      POSTGRES_DB: ${POSTGRES_DB:-kangfiscal}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    profiles: ["full"]
+
 volumes:
   postgres_data:

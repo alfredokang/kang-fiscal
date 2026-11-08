@@ -412,3 +412,49 @@ func (c *Client) SendEvent(ctx context.Context, t Target, batchID int64, signedE
 	}
 	return out, nil
 }
+
+// VoidResult é o retInutNFe.
+type VoidResult struct {
+	// CStat 102 = inutilização homologada; o resto é rejeição (563 = já existe pedido
+	// de inutilização com a mesma faixa).
+	CStat      int
+	Motive     string
+	Protocol   string
+	ReceivedAt string
+	// RetInut é o retInutNFe inteiro: entra no procInutNFe.
+	RetInut []byte
+}
+
+// Voided diz se a faixa foi inutilizada.
+func (v VoidResult) Voided() bool { return v.CStat == 102 }
+
+// VoidRange envia o pedido de inutilização já assinado. Inutilização não tem contingência:
+// vai sempre à autorizadora da UF.
+func (c *Client) VoidRange(ctx context.Context, t Target, signedInut []byte) (VoidResult, error) {
+	ep, err := c.table.Resolve(t.Model, t.UF, t.Environment, ServiceVoidRange, NoContingency)
+	if err != nil {
+		return VoidResult{}, err
+	}
+	doc := bytes.TrimSpace(signedInut)
+	if i := bytes.Index(doc, []byte("?>")); bytes.HasPrefix(doc, []byte("<?xml")) && i > 0 {
+		doc = bytes.TrimSpace(doc[i+2:])
+	}
+	raw, err := c.call(ctx, ep, doc)
+	if err != nil {
+		return VoidResult{}, err
+	}
+	var r struct {
+		Inner []byte `xml:",innerxml"`
+		Info  struct {
+			CStat      int    `xml:"cStat"`
+			Motive     string `xml:"xMotivo"`
+			Protocol   string `xml:"nProt"`
+			ReceivedAt string `xml:"dhRecbto"`
+		} `xml:"infInut"`
+	}
+	if err := xml.Unmarshal(raw, &r); err != nil {
+		return VoidResult{}, fmt.Errorf("%w: retInutNFe ilegível", ErrUncertain)
+	}
+	return VoidResult{CStat: r.Info.CStat, Motive: r.Info.Motive, Protocol: r.Info.Protocol, ReceivedAt: r.Info.ReceivedAt,
+		RetInut: []byte(`<retInutNFe xmlns="` + nfeNamespace + `" versao="4.00">` + string(r.Inner) + `</retInutNFe>`)}, nil
+}

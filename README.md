@@ -178,7 +178,8 @@ key, _ := accesskey.Build(accesskey.Parts{UFCode: 35, Issued: time.Now(),
 | `POST /v1/nfe` — emissão da NF-e com idempotência e consulta pela chave quando a SEFAZ não responde | ✅ |
 | Cancelamento e carta de correção (`POST /v1/nfe/{chave}/cancel` e `/correction`) | ✅ |
 | DANFE em PDF (`GET /v1/nfe/{chave}/danfe`), sem dependência | ✅ |
-| NFC-e, inutilização automática, credenciais por tenant | 🔜 |
+| Inutilização manual (`POST /v1/nfe/void-range`) e automática (`kang-fiscal worker`) | ✅ |
+| NFC-e, credenciais por tenant | 🔜 |
 | NFC-e 65, contingência, DistribuiçãoDF-e, NFS-e Nacional | 🔜 F2–F5 |
 
 ## Arquitetura

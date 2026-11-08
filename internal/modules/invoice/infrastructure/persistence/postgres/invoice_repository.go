@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/application/port/output"
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain"
 	"github.com/alfredokang/kang-fiscal/internal/modules/invoice/domain/entity"
 	"github.com/alfredokang/kang-fiscal/shared/pagination"
@@ -59,6 +60,32 @@ func (r *InvoiceRepository) FindByIdempotencyKey(ctx context.Context, tenantID, 
 // FindByAccessKey lê a nota pela chave de acesso.
 func (r *InvoiceRepository) FindByAccessKey(ctx context.Context, tenantID, accessKey string) (*entity.Invoice, error) {
 	return r.one(ctx, `WHERE tenant_id = $1 AND access_key = $2`, tenantID, accessKey)
+}
+
+// FindByID lê a nota pelo id.
+func (r *InvoiceRepository) FindByID(ctx context.Context, tenantID, id string) (*entity.Invoice, error) {
+	return r.one(ctx, `WHERE tenant_id = $1 AND id = $2`, tenantID, id)
+}
+
+// InRange lista as notas de uma série com número na faixa.
+func (r *InvoiceRepository) InRange(ctx context.Context, k output.NumberKey, from, to int) ([]*entity.Invoice, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+columns+` FROM invoice_invoices
+		WHERE tenant_id = $1 AND issuer_ref = $2 AND environment = $3 AND model = $4 AND series = $5
+		  AND number BETWEEN $6 AND $7 ORDER BY number LIMIT 1000`,
+		k.TenantID, k.IssuerRef, k.Environment, k.Model, k.Series, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*entity.Invoice
+	for rows.Next() {
+		inv, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, inv)
+	}
+	return out, rows.Err()
 }
 
 func (r *InvoiceRepository) one(ctx context.Context, where string, args ...any) (*entity.Invoice, error) {

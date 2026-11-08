@@ -61,3 +61,12 @@ func (g *SefazGateway) SendEvent(ctx context.Context, cert *certificate.Certific
 	}
 	return c.SendEvent(ctx, t, batch, signed)
 }
+
+// VoidRange envia a inutilização.
+func (g *SefazGateway) VoidRange(ctx context.Context, cert *certificate.Certificate, t sefaz.Target, signed []byte) (sefaz.VoidResult, error) {
+	c, err := g.client(cert)
+	if err != nil {
+		return sefaz.VoidResult{}, err
+	}
+	return c.VoidRange(ctx, t, signed)
+}

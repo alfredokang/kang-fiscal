@@ -35,6 +35,12 @@ type EnvConfig struct {
 	// os certificados já gravados: é preciso enviá-los de novo.
 	SecretsEncryptionKey string `envconfig:"SECRETS_ENCRYPTION_KEY"`
 
+	// Inutilização automática: o worker varre a cada VOID_SWEEP_MINUTES os números
+	// reservados há mais de VOID_AFTER_HOURS sem nota válida. 24 horas dá tempo de alguém
+	// olhar uma rejeição, e o prazo legal é o dia 10 do mês seguinte.
+	VoidSweepMinutes int `envconfig:"VOID_SWEEP_MINUTES" default:"60"`
+	VoidAfterHours   int `envconfig:"VOID_AFTER_HOURS" default:"24"`
+
 	// Responsável técnico (infRespTec): a empresa que mantém o sistema emissor. Várias UFs
 	// exigem; quem instala o Kang Fiscal para clientes informa os próprios dados.
 	RespTecCNPJ    string `envconfig:"RESP_TEC_CNPJ"`

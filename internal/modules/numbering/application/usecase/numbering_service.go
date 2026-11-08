@@ -22,6 +22,9 @@ func NewNumberingService(repo output.SeriesRepository, issuers output.IssuerChec
 	return &NumberingService{repo: repo, issuers: issuers, now: func() time.Time { return time.Now().UTC() }}
 }
 
+// Now é o relógio do serviço (os adapters convertem corte absoluto em idade com ele).
+func (s *NumberingService) Now() time.Time { return s.now() }
+
 // Reserve entrega o próximo número para um documento.
 func (s *NumberingService) Reserve(ctx context.Context, key entity.SeriesKey, documentRef string) (entity.Reservation, error) {
 	if err := key.Validate(); err != nil {

@@ -28,6 +28,9 @@ func NewModule(db *sql.DB, deps usecase.Deps) *Module {
 	if deps.Events == nil {
 		deps.Events = postgres.NewEventRepository(db)
 	}
+	if deps.Voids == nil {
+		deps.Voids = postgres.NewVoidRepository(db)
+	}
 	if deps.Sefaz == nil {
 		deps.Sefaz = gateway.NewSefazGateway()
 	}
@@ -37,3 +40,6 @@ func NewModule(db *sql.DB, deps usecase.Deps) *Module {
 
 // RegisterRoutes pendura as rotas do módulo.
 func (m *Module) RegisterRoutes(r chi.Router) { adapterhttp.RegisterRoutes(r, m.handler) }
+
+// RegisterAdminRoutes pendura as rotas de administração do módulo.
+func (m *Module) RegisterAdminRoutes(r chi.Router) { adapterhttp.RegisterAdminRoutes(r, m.handler) }

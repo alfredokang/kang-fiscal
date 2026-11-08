@@ -33,10 +33,11 @@ import (
 
 // Server é a API HTTP.
 type Server struct {
-	db     *sql.DB
-	box    *secretbox.Box
-	sefaz  invoiceout.SefazGateway
-	router chi.Router
+	invoices *invoiceusecase.InvoiceService
+	db       *sql.DB
+	box      *secretbox.Box
+	sefaz    invoiceout.SefazGateway
+	router   chi.Router
 }
 
 // Option ajusta o servidor (testes trocam a SEFAZ por uma falsa).
@@ -59,6 +60,9 @@ func NewServer(db *sql.DB, opts ...Option) (*Server, error) {
 	s.router = s.routes()
 	return s, nil
 }
+
+// Invoices devolve o serviço de emissão (o worker usa a mesma montagem da API).
+func (s *Server) Invoices() *invoiceusecase.InvoiceService { return s.invoices }
 
 // Handler devolve o roteador (testes de ponta a ponta).
 func (s *Server) Handler() http.Handler { return s.router }
@@ -91,6 +95,7 @@ func (s *Server) routes() chi.Router {
 		Sefaz:    s.sefaz,
 		RespTec:  respTec(),
 	})
+	s.invoices = invoiceModule.Service
 
 	r.Route("/v1", func(v1 chi.Router) {
 		// Timeout só na API: a emissão vai esperar a SEFAZ, e um teto aqui impede que
@@ -102,6 +107,7 @@ func (s *Server) routes() chi.Router {
 			certificateModule.RegisterRoutes(admin)
 			taxModule.RegisterRoutes(admin)
 			numberingModule.RegisterRoutes(admin)
+			invoiceModule.RegisterAdminRoutes(admin)
 		})
 		// A emissão fica fora de /admin porque é a rota dos sistemas integrados. Até as
 		// credenciais por tenant existirem, ela usa o mesmo ADMIN_TOKEN.

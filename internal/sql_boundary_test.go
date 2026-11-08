@@ -29,6 +29,7 @@ var tableOwners = map[string]string{
 	"certificate_certificates": "certificate",
 	"invoice_events":           "invoice",
 	"invoice_invoices":         "invoice",
+	"invoice_voids":            "invoice",
 	"issuer_issuers":           "issuer",
 	"numbering_reservations":   "numbering",
 	"numbering_series":         "numbering",

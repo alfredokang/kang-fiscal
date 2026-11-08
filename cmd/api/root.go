@@ -22,7 +22,7 @@ func Execute() {
 		Version: Version,
 	}
 
-	root.AddCommand(Api, Migrate, Healthcheck, SefazStatus)
+	root.AddCommand(Api, Migrate, Worker, Healthcheck, SefazStatus)
 
 	if err := root.Execute(); err != nil {
 		log.Fatal(err)
