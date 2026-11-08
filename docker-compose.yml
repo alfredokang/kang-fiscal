@@ -1,0 +1,61 @@
+# Sobe o Kang Fiscal completo: `docker compose up -d`.
+#
+# Só Postgres é obrigatório (Constituição, Art. 0). As senhas abaixo são de
+# desenvolvimento — em produção, defina-as no .env ou no ambiente.
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: kangfiscal_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kangfiscal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kangfiscal}
+      POSTGRES_DB: ${POSTGRES_DB:-kangfiscal}
+      # UTC no servidor também: o prazo de cancelamento conta horas a partir da emissão.
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Postgres 18 grava em /var/lib/postgresql/18/docker: o volume vai no diretório pai.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kangfiscal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Aplica as migrations e sai. A API só sobe depois que ele termina bem.
+  migrate:
+    build: .
+    image: alfredokang/kang-fiscal:${IMAGE_TAG:-latest}
+    command: ["migrate"]
+    env_file: [{ path: .env, required: false }]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-kangfiscal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kangfiscal}
+      POSTGRES_DB: ${POSTGRES_DB:-kangfiscal}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["full"]
+
+  api:
+    image: alfredokang/kang-fiscal:${IMAGE_TAG:-latest}
+    command: ["api"]
+    env_file: [{ path: .env, required: false }]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-kangfiscal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kangfiscal}
+      POSTGRES_DB: ${POSTGRES_DB:-kangfiscal}
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    profiles: ["full"]
+
+volumes:
+  postgres_data:

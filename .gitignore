@@ -1,0 +1,10 @@
+.env
+/server
+/kang-fiscal
+*.pfx
+*.p12
+*.pem
+/storage/
+coverage.out
+.DS_Store
+.idea/

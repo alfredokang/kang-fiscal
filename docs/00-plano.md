@@ -1,0 +1,121 @@
+# Plano do Kang Fiscal
+
+> Decidido em 2026-11-08. Este documento diz **o que vem em cada fase** e por quê. As
+> regras de como o código é escrito estão na [Constituição](../CONSTITUTION.md).
+
+## A ideia
+
+Quem precisa emitir nota no Brasil hoje tem duas saídas: pagar um provedor por nota, ou
+usar uma biblioteca em PHP, C#, Java ou Delphi. Em Go não existe um emissor completo, e
+nenhum dos que existem cobre a reforma tributária (ver [referências](01-referencias.md)).
+
+O Kang Fiscal entrega duas coisas no mesmo repositório:
+
+1. **A API em Docker**, para qualquer linguagem: `docker run alfredokang/kang-fiscal`.
+2. **A biblioteca Go (`pkg/`)**, para quem quer embutir a emissão sem subir outro serviço.
+
+A API usa a própria biblioteca por dentro: o código fiscal é um só.
+
+## Por que a reforma tributária está no MVP, e não numa fase posterior
+
+Pela NT 2025.002 (v1.40), a NF-e e a NFC-e do **regime normal sem o grupo IBS/CBS são
+rejeitadas desde 03/08/2026**. Simples Nacional e MEI entram em 2027. Um emissor sem os
+grupos da reforma já nasce inútil para o regime normal.
+
+O que **não** se sabe ainda, e por isso é dado e não código (Constituição, Art. 12):
+
+- As alíquotas definitivas de CBS e IBS, que dependem de resolução do Senado. Em 2026
+  valem as de teste: CBS 0,9% e IBS 0,1%.
+- O calendário fino da transição: a CBS e o IS entram em 2027, e o IBS sobe gradualmente
+  até 2033.
+- As próximas versões das notas técnicas.
+
+**Split payment.** Quem faz o split é o PSP, na liquidação, não o emissor, e a
+regulamentação operacional ainda não saiu. O emissor deixa pronto o que vai ser
+necessário: por nota, a chave de acesso e os valores de IBS, CBS e IS, num endpoint e num
+webhook (`invoice.split_data`).
+
+## Módulos
+
+| Módulo | Responsabilidade | Fase |
+|---|---|---|
+| `issuer` | Emitente: CNPJ, IE, CRT, endereço fiscal, ambiente | ✅ F0 |
+| `credential` | Credenciais de API por tenant (HMAC com pepper, escopos), mostradas uma única vez | F1 |
+| `certificate` | A1 `.pfx` cifrado em repouso, raiz do CNPJ conferida, segredo do antigo apagado na troca, nunca devolvido | ✅ F1 |
+| `numbering` | Série e número com `FOR UPDATE`; inutilização automática de buraco | F1 |
+| `taxrule` | Motor tributário: CST/CSOSN, CFOP, ICMS/ST/DIFAL/FCP, PIS/COFINS e **IBS/CBS/IS** com `cClassTrib`; tabelas por vigência | F1 |
+| `invoice` | NF-e 55 e NFC-e 65: `draft → signed → sent → authorized \| rejected \| denied → canceled`, eventos (cancelamento, CC-e), XML imutável | F1/F2 |
+| `contingency` | Status por UF, SVC-AN/SVC-RS automático, EPEC, NFC-e offline | F3 |
+| `dfe` | DistribuiçãoDF-e por NSU, manifestação do destinatário | F4 |
+| `nfse` | NFS-e no padrão nacional (DPS + Sefin Nacional) | F5 |
+| `webhook` | Eventos de saída assinados (HMAC) com outbox e retentativa | F2 |
+| `audit` | Trilha de quem fez o quê, com segredos redigidos | F2 |
+
+Biblioteca (`pkg/`):
+
+| Pacote | O que faz | Fase |
+|---|---|---|
+| `decimal` | Ponto fixo, escala do leiaute, arredondamento explícito | ✅ F0 |
+| `document` | CNPJ (inclusive alfanumérico) e CPF | ✅ F0 |
+| `accesskey` | Chave de 44 posições, cNF aleatório | ✅ F0 |
+| `nfe` | Structs do leiaute 4.00 com os grupos `IBSCBS`, `IS` e os totais | F1 |
+| `xmldsig` | Assinatura enveloped C14N 1.0 própria, inserida sem reserializar; conferida contra NF-e reais | ✅ F1 |
+| `certificate` | Leitura do A1 (`go-pkcs12`), CNPJ alfanumérico no otherName, nunca impresso em log | ✅ F1 |
+| `sefaz` | Cliente SOAP 1.2 com mTLS e cadeia ICP-Brasil verificada; status, autorização síncrona, consulta pela chave; 528 códigos de retorno com dica; URLs das 27 UFs em tabela | ✅ F1 |
+| `danfe` | DANFE e DANFCE em PDF, Go puro | F1/F2 |
+
+## API (v1)
+
+```
+POST   /v1/nfe                      emite (síncrono com teto → 202 + webhook se demorar)
+GET    /v1/nfe/{chave}              consulta (local, ou ?sync=sefaz)
+GET    /v1/nfe/{chave}/xml | /danfe
+POST   /v1/nfe/{chave}/cancel       cancelamento
+POST   /v1/nfe/{chave}/correction   carta de correção
+POST   /v1/nfe/void-range           inutilização
+GET    /v1/nfe?status=&from=&to=    lista paginada por cursor
+POST   /v1/nfce …                   o mesmo para o modelo 65
+POST   /v1/tax/simulate             calcula os tributos SEM emitir (útil no carrinho)
+GET    /v1/dfe/received             notas contra o CNPJ + manifestação
+POST   /v1/nfse …
+GET    /v1/sefaz/status/{uf}
+/v1/admin/issuers …                 ✅ cadastro do emitente
+```
+
+`POST /v1/tax/simulate` é o diferencial para e-commerce: a loja mostra os tributos no
+carrinho com o mesmo motor que vai emitir a nota.
+
+## Fases
+
+| Fase | Entrega | Pronto quando |
+|---|---|---|
+| **F0 — Fundação** ✅ | Repositório, constituição, guards, Postgres 18, imagem distroless, `pkg/decimal`, `pkg/document`, `pkg/accesskey`, módulo `issuer` | `make check` verde e imagem rodando |
+| **F1 — NF-e 55 em homologação** | `credential`, `certificate`, `numbering`, `taxrule`, `invoice`; `pkg/nfe`, `xmldsig`, `sefaz`, `danfe`; grupos IBS/CBS/IS | Nota autorizada em homologação em SP, MG e na SVRS |
+| **F2 — NFC-e 65** | QR Code + CSC, DANFCE, webhooks, auditoria | Venda de balcão emitida e impressa |
+| **F3 — Contingência** | SVC automática, EPEC, offline, consulta antes de reenviar sob caos | SEFAZ caindo no meio do envio não gera nota duplicada |
+| **F4 — Recebimento** | DistribuiçãoDF-e, manifestação | — |
+| **F5 — NFS-e Nacional** | DPS + Sefin Nacional, com IBS/CBS | — |
+| **F6 — Ecossistema** | SDKs gerados do OpenAPI (TS, PHP, Python), site de documentação; depois CT-e e MDF-e | — |
+
+**Primeiro cliente:** o backend da Minas Café. O módulo `invoice` previsto lá vira uma
+porta `InvoiceIssuerPort` com um adapter que chama esta API. É a prova de que o emissor se
+incorpora a qualquer projeto.
+
+## Conformidade
+
+- **Golden XML** (Constituição, Art. 11.3): cada cenário fiscal gera um XML comparado byte a
+  byte com um arquivo conferido na SEFAZ de homologação.
+- **Conferência cruzada com o sped-nfe** (MIT): a mesma entrada, nos dois emissores, deve
+  produzir o mesmo XML antes da assinatura.
+- **Calculadora oficial da RFB** como verificação opcional: ela tem versão offline em
+  contêiner. Entra como serviço opcional no `docker-compose` (`?verify=rfb`), **sem**
+  redistribuir a imagem, porque a licença dela não está clara. O usuário baixa da Receita.
+
+## Riscos
+
+- **Homologação exige certificado A1 real.** Sem ele, a F1 se valida só por golden XML.
+- **Cada UF tem suas peculiaridades.** As URLs e as particularidades ficam em tabela, e a
+  suíte de conformidade tem um caso por UF.
+- **Não existe validador XSD maduro em Go puro**, e o caminho com cgo e libxml2 quebra a
+  imagem leve. Por isso: structs tipadas, regras da NT no domínio, e XSD como etapa
+  opcional de CI. A SEFAZ continua sendo a validação final.

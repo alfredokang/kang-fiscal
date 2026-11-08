@@ -1,0 +1,18 @@
+Kang Fiscal
+Copyright 2026 Alfredo Kang
+
+Este produto é distribuído sob a Licença Apache, versão 2.0 (veja LICENSE).
+
+Feito por Alfredo Kang para ajudar empresários e desenvolvedores do Brasil a acelerar
+seus projetos.
+
+Trabalhos de terceiros reaproveitados ou usados como referência estão listados em
+docs/01-referencias.md. Código reaproveitado de projetos MIT, BSD ou Apache-2.0 mantém o
+aviso de copyright original no arquivo onde foi incorporado.
+
+Inclui:
+- pkg/certificate: adaptado de github.com/mschunke/gonfe (MIT, Copyright (c) 2026 mschunke).
+- pkg/sefaz/endpoints.json e cstat.json: gerados a partir de github.com/nfephp-org/sped-nfe (MIT).
+- pkg/sefaz/icpbrasil.pem: certificados públicos da ICP-Brasil (ITI), na compilação CC0 de
+  github.com/rffontenelle/CertificadosAC-ICP-Brasil.
+- pkg/xmldsig/testdata: documentos dos fixtures do sped-nfe (MIT).

@@ -1,0 +1,8 @@
+.git
+.env
+*.pfx
+*.p12
+*.pem
+storage
+docs
+coverage.out
