@@ -11,8 +11,10 @@ version: "3.8"
 # Antes do primeiro deploy, no nó manager:
 #    mkdir -p /root/backups/kangfiscal
 #
-# POSTGRES_PASSWORD vem das "Environment variables" da stack no Portainer — a MESMA da
-# stack do Postgres.
+# POSTGRES_PASSWORD vem das "Environment variables" da stack no Portainer: a senha do
+# usuário kangfiscal, a MESMA da stack kangfiscal. Num Postgres compartilhado (o da Minas
+# Café), NÃO é a senha do usuário da loja; ponha também
+# POSTGRES_HOST=postgres_minascafe_postgres.
 #
 # O backup tem os certificados CIFRADOS: para restaurá-los é preciso também a
 # SECRETS_ENCRYPTION_KEY, que NÃO está no backup. Guarde-a à parte.
